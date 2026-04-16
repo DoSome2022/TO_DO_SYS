@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+10/3/2026
 
-## Getting Started
+現在差edit user 以及 user 顯示Position 以及Permission 就應該完成USER 管理部份(要處理DynamicFeature)
 
-First, run the development server:
+13/3/2026
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+暫時完成了PM 部份的project 位置
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+現在去做admin 部份的裝備 CRUD
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
+29/5/2026
 
-To learn more about Next.js, take a look at the following resources:
+設備做了數據加入 明天再做測試
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+6/4/2026
 
-## Deploy on Vercel
+客人的client side 完成 差是測試，要再加商品部份才是一環才是一個閉環系統
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+8/4/2026
+已做完 admin 的服務 以及 公司 logo 自選
+
+
+11/4/2026
+
+sales 看不到 客人的信息// 已經解決問題
+
+13/4/2026
+
+現在要做PM 的項目 以及 有關 PM以及 員工 的todo 列表
+
+
+15/4/2026
+
+員工要在todo list 中 的該任務加入 要使用的裝B 以及 該任務甚麼時間做，以及要有上傳文件功能 要分版本的，還有項目內的小組對話群 還有自定todo list
+明天要試 是否能顯示裝備在todo list 中(員工) 以已做了generate 以及 push db 
+
+16/4/2026
+
+已完成員工要在todo list 中 的該任務加入 要使用的裝B 以及 該任務甚麼時間做 以及 測試

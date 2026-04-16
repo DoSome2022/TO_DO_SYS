@@ -1,65 +1,65 @@
-import Image from "next/image";
+// app/page.tsx (Server Component)
 
-export default function Home() {
+import Link from "next/link";
+import { PortfolioCard } from "@/components/client/PortfolioCard"; 
+import { db } from "./lib/prisma";
+import { auth } from "@/auth";
+
+// 1. 引入 NextAuth 的 session 獲取方法 
+// (備註：如果您使用的是 NextAuth v5，請改成 import { auth } from "@/auth")
+
+
+export default async function HomePage() {
+  // 2. 在 Server 端取得目前的登入狀態
+   const session = await auth(); // 直接呼叫 auth()
+
+  const isLoggedIn = !!session;
+
+
+  const publicProjects = await db.project.findMany({
+    where: { isPublicPortfolio: true },
+    include: { quotation: { where: { status: "WON" } } }, 
+    take: 10,
+  });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="min-h-screen bg-neutral-950 text-neutral-50">
+      {/* 英雄區塊 (Hero Section) */}
+      <section className="relative h-screen flex flex-col items-center justify-center">
+        <h1 className="text-6xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-neutral-200 to-neutral-500">
+          YOUR CINEMA VISION
+        </h1>
+        <p className="mt-4 text-neutral-400">創造觸動人心的視覺盛宴</p>
+        
+        {/* 3. 判斷是否有 session 來切換按鈕文字與樣式 */}
+        {session ? (
+          // <Link 
+          //   href="/dashboard" // 假設登入後的使用者會去 dashboard (可依您專案路徑修改)
+          //   className="mt-8 px-6 py-2 border border-amber-600 bg-amber-600/10 text-amber-500 hover:bg-amber-600 hover:text-white transition-colors rounded"
+          // >
+          //   進入您的專案控制台
+          // </Link>
+          <p></p>
+        ) : (
+          <Link 
+            href="/auth/login" 
+            className="mt-8 px-6 py-2 border border-neutral-700 hover:border-amber-500 hover:text-amber-500 transition-colors rounded"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            客戶登入 / 註冊
+          </Link>
+        )}
+      </section>
+
+      {/* 作品展示區 */}
+       <section className="container mx-auto py-20 grid grid-cols-1 md:grid-cols-2 gap-8">
+        {publicProjects.map((project) => (
+          <PortfolioCard 
+            key={project.id} 
+            project={project} 
+            isLoggedIn={isLoggedIn} // 👈 2. 將登入狀態傳給子元件
+          />
+        ))}
+      </section>
     </div>
   );
 }

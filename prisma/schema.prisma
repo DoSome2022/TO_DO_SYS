@@ -1,0 +1,1028 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id String @id @default(cuid())
+  name String? @unique
+  role String
+  email String? @unique
+  password String?
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  staffTodos Staff_TODO[]
+    // 员工：被分配的具体工作
+  assignedWorks WorkItem[]
+  // 👇 新增這行：帳號是否啟用，預設為 true
+  isActive  Boolean  @default(true)
+  positionId String?
+  position   Position? @relation(fields: [positionId], references: [id])
+  // 該員工產出的所有版本
+  workVersions WorkVersion[] 
+  projects    Project[] 
+
+  usages    DeviceUsage[]
+
+  SalesCustomerConversation SalesCustomerConversation[]
+
+    // 新增的設備相關關聯
+  borrowedEquipmentLogs EquipmentLog[] @relation("EquipmentBorrower") // 作為使用者借用的記錄
+  issuedEquipmentLogs   EquipmentLog[] @relation("EquipmentIssuer")   // 作為管理員發放的記錄
+  receivedEquipmentLogs EquipmentLog[] @relation("EquipmentReceiver") // 作為管理員接收歸還的記錄
+
+
+  //(記錄該用戶上傳過的所有附件)
+  uploadedAttachments   Attachment[]
+
+  // 作為 Sales 負責的報價單
+  salesQuotations Quotation[] @relation("SalesQuotations")
+  
+  // 作為 Sales 負責的專案
+  salesProjects   Project[]   @relation("ProjectSales")
+  
+  // 作為 PM 負責的專案
+  pmProjects      Project[]   @relation("ProjectPM")
+  
+    // 發送的報價單內部訊息
+  internalQuoteMessages InternalQuoteMessage[]
+  // 發送的報價單外部訊息
+  externalQuoteMessages ExternalQuoteMessage[]
+
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+}
+
+model Customer {
+  id String @id @default(cuid())
+  name String? @unique
+  customname String?
+  contactname String?
+  contactphone String?
+  companyname String?
+  companyaddress String?
+  companyemail String?
+  email String? @unique
+  phone String?
+
+  password String?
+  accounts      Account[]
+  sessions      Session[]
+
+  quotations     Quotation[]
+
+  Project    Project[]   
+
+    // 發送的報價單外部訊息
+  externalQuoteMessages ExternalQuoteMessage[]
+
+  SalesCustomerConversation SalesCustomerConversation[]
+
+  CollaborationRequest CollaborationRequest[]
+
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  customerId         String?
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  customerId   String?
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+
+// ★ 新增：職位 Model (由 Admin 動態建立，例如：前端工程師, 會計, PM)
+// --- 權限系統 (改為隱式多對多) ---
+
+model Position {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  salary      Int?
+  
+  // 直接關聯 Permission
+  permissions Permission[]
+  // 🔥 新增這行，預設為 true (啟用)
+  isActive    Boolean  @default(true) 
+  
+  // 直接關聯 DynamicFeature
+  features    DynamicFeature[] 
+
+  users       User[]
+}
+
+model Permission {
+  id          String @id @default(cuid())
+  name        String
+  code        String @unique
+  description String?
+
+    // 🔥 新增這行，預設為 true (啟用)
+  isActive    Boolean  @default(true)
+  
+  // 直接關聯 Position
+  positions   Position[]
+}
+
+model DynamicFeature {
+  id        String   @id @default(cuid())
+  title     String
+  key       String   @unique
+  type      String   // 或使用 enum FeatureType
+  config    String   // 存 JSON string
+  
+  // 直接關聯 Position
+  allowedPositions Position[]
+  
+  createdAt DateTime @default(now())
+}
+
+
+
+enum FeatureType {
+  LINK
+  IFRAME
+  MARKDOWN
+  // CUSTOM_FORM
+}
+
+model PM_TODO {
+  id String @id @default(cuid())
+  Title String?
+  completed Boolean? @default(false)
+  Isconfirm Boolean? @default(false)
+  staff_name String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  staffTodos Staff_TODO[]
+  attachments  Attachment[] // 讓 Todo 也能有附件
+}
+
+model Staff_TODO {
+  id String @id @default(cuid())
+  Title String?
+  completed Boolean? @default(false)
+  targetDate DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  PM_TODO_id String?
+  PM_TODO PM_TODO? @relation(fields: [PM_TODO_id], references: [id])
+
+  staff_id String?
+  staff User? @relation(fields: [staff_id], references: [id])
+  attachments  Attachment[] // 讓 Todo 也能有附件
+
+}
+
+model Project {
+  id String @id @default(cuid())
+  title       String   // 例如："2024夏季網站改版"
+  description String?
+  status      String   @default("IN_PROGRESS") // 进行中, 已完成...
+
+    // ★ 2. 專案的時間範圍 (解決你的問題二、三)
+  startDate   DateTime? // 專案開始日
+  endDate     DateTime? // 專案表定截止日 (Deadline)
+  
+  // ★ 3. 實際完成時間 (用來對比 endDate 看有沒有 delay)
+  completedAt DateTime? 
+  isPublicPortfolio    Boolean @default(false)
+  // ★ 4. 優先級 (解決你的問題二：決定快慢)
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  //專案包含多個「開發階段」
+  phases      ProjectPhase[] 
+  allVersions WorkVersion[]  // ★ 專案的「所有員工產出的版本池」
+
+    // 角色指派 (不綁死職位名稱，而是綁定特定的人)
+  salesId       String?
+  sales         User?    @relation("ProjectSales", fields: [salesId], references: [id])
+  
+  pmId          String?
+  pm            User?    @relation("ProjectPM", fields: [pmId], references: [id])
+
+  // 財務數據 (從 Quotation 帶過來)
+  customerPrice Decimal? // 給 Sales 看的最終報價
+  pmBudget      Decimal? // 給 PM 看的專案預算資金
+
+  // ★ 必須有這兩行才能綁定客戶
+  customerId  String?   
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  
+  // (可選) 也可以綁定報價單，知道這個專案是從哪張報價單來的
+  quotationId String?
+
+  quotation     Quotation? // 反向關聯報價單
+
+  users       User[]
+
+  usages    DeviceUsage[]
+
+  // ★ 关键关联：这个项目包含哪些具体的员工工作？
+  workItems   WorkItem[] 
+
+  //(讓專案知道自己用了哪些設備)
+  equipmentLogs EquipmentLog[]
+
+  referencedByRequests CollaborationRequest[] @relation("ReferenceProject")
+}
+
+// ★ 新增：專案階段 Model(PM 用來打包交付給客人的)
+model ProjectPhase {
+  id          String    @id @default(cuid())
+  name        String    // 階段名稱，例如："需求訪談", "UI/UX設計", "MVP開發", "測試與上線"
+  description String?   // 階段目標說明
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  order       Int       @default(0) // 用來排序階段的先後順序 (例如：1, 2, 3...)
+
+  // 每個階段獨立的時間線
+  startDate   DateTime? 
+  endDate     DateTime? 
+  completedAt DateTime?
+
+  // 關聯回父專案
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // 2. 這個階段包含哪些具體的工作？
+  workItems   WorkItem[]
+
+  // 3. 專屬這個階段的討論留言 / 對話紀錄
+  comments    Comment[]
+
+  // 4. 專屬這個階段的交付成品 / 檔案
+  deliverables Deliverable[]
+  // ★ PM 挑選放入此階段的「最終決定版本」
+  selectedVersions WorkVersion[] 
+  
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// 3. 工作版本 (員工產出的每一個 Version)
+model WorkVersion {
+  id          String    @id @default(cuid())
+  versionName String    // 例如: "v1", "v3", "v5"
+  contentUrl  String?   // 檔案連結、Figma 連結、或程式碼 commit 網址
+  note        String?   // 員工對這個版本的備註
+
+  // 這是哪個員工做的？ (關聯到 User)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+
+  // 這個版本屬於哪個專案的資源池？
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // ★ 這個版本被 PM 選中，放進哪個階段？(可以為空，代表只是員工的內部草稿，還沒被 PM 選用)
+  phaseId     String?
+  phase       ProjectPhase? @relation(fields: [phaseId], references: [id])
+
+  createdAt   DateTime  @default(now())
+}
+
+model WorkItem {
+  id          String   @id @default(cuid())
+  title       String   // 例如："设计首页 Banner"
+  
+  // --- 状态与时间 ---
+  isCompleted Boolean?  @default(false) // 员工打钩
+  isConfirmed Boolean?  @default(false) // PM 确认
+  targetDate  DateTime? // ★ 這是哪一天的工作？(配合日历)
+
+    // ★ 建議新增：如果這項工作需要好幾天，或者有自己的截止日
+  deadline    DateTime? // 這項細工作的死線 (必須 <= Project.endDate)
+  
+  // --- 耗時估計 (選填，方便 PM 算工時) ---
+  estimatedHours Int?   @default(0) 
+  
+  // --- 关联 1: 属于哪个 PM 项目？---
+  // 这就是你提到的 "加入有关 todo 的 DB 记录"
+  projectId   String?   
+  project     Project?  @relation(fields: [projectId], references: [id])
+
+  // 關聯到階段
+  phaseId     String?
+  phase       ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+equipmentLogs EquipmentLog[] // 任務中包含借用紀錄
+
+  // --- 关联 2: 分配给哪个员工？---
+  staffId     String?
+  staff       User?     @relation(fields: [staffId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+
+// ★ 新增：討論紀錄 Model (對話)
+model Comment {
+  id          String    @id @default(cuid())
+  content     String
+  
+  phaseId     String?
+  phase       ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  
+
+  // 這裡可以加上留言的員工 userId 等等
+  createdAt   DateTime  @default(now())
+}
+
+// ★ 新增：交付成品 Model (檔案/連結)
+model Deliverable {
+  id          String    @id @default(cuid())
+  name        String    // 檔案名稱或連結名稱 (例如 "Figma 設計稿", "第一階段報告.pdf")
+  url         String    // 檔案網址
+  fileKey   String?  // 存 OSS 的 Object Key
+  fileSize  Int?     // 檔案大小 (bytes)
+  
+  phaseId     String
+  phase       ProjectPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+}
+
+// 2. 器材本體 (每一筆資料代表"一台"具體的機器)
+model Device{
+  id          String @id @default(cuid())
+  sku    String?   @unique // 財產編號/條碼 (例如: CAM-001)
+  name  String?
+  
+  description String?
+  quantity   Int? @default(0) // 目前總庫存量 (隨 StockLog 自動更新)
+  price      Float? // 單價
+  imgUrl     String?
+    // 狀態管理 (解決: 是否壞掉)
+  // AVAILABLE:在庫, IN_USE:使用中, MAINTENANCE:維修中, BROKEN:報廢, LOST:遺失
+  status      String?   @default("AVAILABLE") 
+  condition   String?  // 文字備註，例如："鏡頭有刮痕，但不影響使用"
+
+  
+  // 我們可以簡單紀錄壞掉的數量
+  brokenQuantity Int   @default(0) 
+
+  // 來源管理 (解決: 這是買的還是跟別人借的)
+  ownership   String   @default("OWNED") // OWNED(自有), RENTED(租賃), BORROWED(借用)
+  supplier    String?  // 如果是租/借的，來源是誰？(例如："顺丰器材出租行")
+  returnDate  DateTime? // 如果是租的，我們什麼時候要還給廠商？
+
+    // 關聯
+  typeId      String?
+  type        DeviceType? @relation(fields: [typeId], references: [id])
+
+    // 紀錄這台機器的所有歷史 (維修紀錄、借出紀錄)
+  usages      DeviceUsage[]      // 使用紀錄 (誰借走、用在哪)
+  maintenances MaintenanceLog[]  // 維修紀錄 (什麼時候壞、修多少錢)
+
+  // 歷史紀錄
+  stockLogs   StockLog[]  // 進出貨紀錄 (加減數量的歷史)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+}
+
+model DeviceType{
+  id          String @id @default(cuid())
+  name  String?
+  devices     Device[] // 關聯到具體器材
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+}
+
+
+// 3. 器材使用紀錄 (解決: 被誰用在什麼項目、用多久)
+model DeviceUsage {
+  id          String   @id @default(cuid())
+  
+  // 借出資訊
+  borrowedAt  DateTime @default(now()) // 借出時間
+  returnedAt  DateTime?                // 歸還時間 (空值代表還沒還)
+  expectedReturnAt DateTime?           // 預計歸還時間
+
+  // 關聯到具體哪一台機器
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id])
+
+  // 誰借的？ (員工)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  // 用在哪個專案？
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id])
+
+  // 歸還時的狀態註記
+  returnNote  String?  // 例如："歸還時發現電池蓋鬆動"
+}
+
+// 4. 維修紀錄 (解決: 壞掉的歷史與成本)
+model MaintenanceLog {
+  id          String   @id @default(cuid())
+  
+  startDate   DateTime @default(now()) // 開始維修日期
+  endDate     DateTime?                // 完成維修日期
+  
+  cost        Float?   // 維修費用
+  reason      String   // 故障原因 (例如: "摔落螢幕破裂")
+  vendor      String?  // 維修廠商
+
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id])
+}
+
+model StockLog {
+  id          String   @id @default(cuid())
+  
+  // 變動數量：正數代表增加 (進貨/歸還)，負數代表減少 (借出/報廢)
+  changeAmount Int     
+  
+  // 變動原因 (這是關鍵！)
+  // PURCHASE (採購進貨), BORROW (借出), RETURN (歸還), 
+  // BROKEN (損壞報廢), LOST (遺失), ADJUSTMENT (盤點調整)
+  reason      String   
+  
+  note        String?  // 備註 (例如："採購單號 #20240315" 或 "小明借走")
+
+  // 關聯
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id])
+
+  // 操作人員 (是誰紀錄這筆帳的)
+  operatorId  String?  
+  // operator User? ...
+
+  createdAt   DateTime @default(now()) // 發生時間
+}
+
+
+
+// 設備的所有權類型
+enum EquipmentOwnership {
+  COMPANY_OWNED    // 公司資產
+  EXTERNAL_RENTAL  // 外借來的 (從外部借入/租用)
+}
+
+// 設備當前的狀態
+enum EquipmentStatus {
+  AVAILABLE    // 可用
+  IN_USE       // 使用中 (借出中)
+  MAINTENANCE  // 維修中
+  LOST         // 遺失
+  RETIRED      // 報廢/已歸還給供應商
+}
+
+// 使用/借用類型 (區分是自用還是借給外人)
+enum UsageType {
+  INTERNAL_USE      // 內部使用 (員工在項目中使用)
+  EXTERNAL_LENDING  // 外借給他人 (借給客戶或合作夥伴)
+}
+
+// 設備歸還時的狀況
+enum EquipmentCondition {
+  PERFECT   // 完好無損
+  MINOR_DAMAGE // 輕微損耗
+  DAMAGED   // 損壞
+  BROKEN    // 嚴重毀損/無法使用
+}
+
+
+
+model Equipment {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // 基本資訊
+  name         String   // 設備名稱
+  model        String?  // 型號
+  serialNumber String?  // 序列號 (唯一標識)
+  value        Decimal? // 價值 (購買價格或租用成本)
+  notes        String?  // 備註 (例如: "鏡頭有刮痕，但不影響使用")
+  
+  // 圖片/附件 (可選，連結到 Attachment 表)
+  attachments  Attachment[]
+
+  borrowerName    String?   // 經手人
+  borrowDate      DateTime? // 借入日期
+  // 👇 請新增下面這幾行，讓 Equipment 知道它擁有哪些歷史紀錄
+  loanItems          LoanItem[]          // 關聯到借用明細 (注意：不是直接連 Loan，是連 LoanItem)
+  maintenanceRecords MaintenanceRecord[] // 關聯到維修紀錄
+  
+  // 所有權與來源
+  ownership    EquipmentOwnership @default(COMPANY_OWNED)
+  
+  // 如果是 EXTERNAL_RENTAL (從外面借來的)，這裡記錄來源
+  supplierName    String?   // 供應商/來源名稱 (例如: "Canon租賃中心")
+  supplierContact String?   // 供應商聯絡方式
+  rentalDeadline  DateTime? // 必須歸還給供應商的日期
+  
+  // 歸屬團隊
+
+  team         String?   // 這台設備屬於哪個團隊/部門 (例如: "攝影組", "後製組")
+
+  // 當前狀態
+  status       EquipmentStatus @default(AVAILABLE)
+
+    // 新增：計費相關欄位
+  billingType   BillingType     @default(NONE) 
+  price         Float           @default(0) // 單價 (每小時或每天多少錢)
+
+  // 關聯：使用歷史記錄
+  logs         EquipmentLog[]
+
+  
+}
+
+model EquipmentLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- 1. 核心關聯：甚麼設備？ ---
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  // --- 2. 核心關聯：在哪個項目使用？ (這是您強調的重點) ---
+  // 這裡明確記錄：這台設備是為了哪個 Project 而被借出的
+  projectId   String?   
+  project     Project?  @relation(fields: [projectId], references: [id])
+
+  // --- 3. 時間紀錄：甚麼時候用的？ ---
+  // 這兩個時間點定義了「在該項目中的使用期間」
+  borrowedAt  DateTime  @default(now()) // 開始使用時間 (Check-out)
+  returnedAt  DateTime?                 // 結束使用時間 (Check-in，空值代表還在用)
+
+
+  // 新增：精準的「實際使用時間」與「費用」
+  usageStartTime    DateTime?                 // 實際開始使用的精準時間
+  usageEndTime      DateTime?                 // 實際結束使用的精準時間
+  totalCost         Float?                    // 系統自動結算的總費用
+  // --- 4. 預約/截止時間 ---
+  dueAt       DateTime?                 // 預計歸還時間 (Deadline)
+
+
+// 新增：整體借用備註或總天數（選填）
+  borrowDurationDays Int?                       // 例如 10 天
+
+  // 關聯到多筆實際使用時間表
+  usageSchedules   EquipmentUsageSchedule[]
+  // --- 5. 使用者資訊：誰用的？ ---
+  // 這裡區分「內部員工」與「外部借用」
+  usageType   UsageType @default(INTERNAL_USE) 
+  
+  // 如果是內部員工 (User)
+  borrowedById String?
+  borrowedBy   User?   @relation("EquipmentBorrower", fields: [borrowedById], references: [id])
+
+  // 如果是外借給別人 (External) - 例如借給客戶或合作方
+  externalRecipient String? // 外借對象名稱 (例如: "客戶陳大文")
+  externalContact   String? // 聯絡電話
+  
+  // --- 6. 經手人資訊：誰負責的？ ---
+  // 誰把設備拿給使用者的？ (例如倉管)
+  issuedById   String?
+  issuedBy     User?   @relation("EquipmentIssuer", fields: [issuedById], references: [id])
+
+    // 👇 請新增以下兩行 (補上接收歸還者的關聯)
+  receivedById String?
+  receivedBy   User?   @relation("EquipmentReceiver", fields: [receivedById], references: [id])
+
+  notes         String? 
+
+
+  // 這個，讓設備借用可以直接綁定到特定的待辦任務
+  workItemId String?
+  workItem   WorkItem? @relation(fields: [workItemId], references: [id])
+
+
+  // --- 7. 歸還狀況：還回來時是好是壞？ ---
+  condition           EquipmentCondition? // 歸還時的狀態 (完好/損壞)
+  conditionDescription String?            // 詳細說明 (例如: "鏡頭蓋遺失")
+
+  @@index([equipmentId])
+  @@index([projectId]) // 加上索引，讓您能快速查詢「某個項目用了哪些設備」
+}
+
+
+model Attachment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  // 檔案基本資料
+  name      String   // 檔案名稱 (例如: "Canon5D_損壞.jpg")
+  url       String   // 檔案連結 (例如存放在 S3 或硬碟的路徑)
+  fileType  String   // 檔案類型 (例如: "image/jpeg", "application/pdf")
+  fileSize  Int?     // 檔案大小 (bytes)
+
+  // --- 關聯設定 (這是多對一，一張圖屬於某個東西) ---
+  
+  // 1. 如果是設備的照片/發票
+  equipmentId String?
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  // 2. 如果是 Todo 任務的附件 (配合您之前的需求)
+  pmtodoId      String?
+  pmtodo        PM_TODO?      @relation(fields: [pmtodoId], references: [id])
+
+  stafftodoId      String?
+  stafftodo        Staff_TODO?      @relation(fields: [stafftodoId], references: [id])
+
+  // 3. 上傳者 (是誰傳這張圖的)
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  @@index([equipmentId])
+  @@index([pmtodoId])
+  @@index([stafftodoId])
+}
+
+
+// ==========================================
+// 借用與維修系統 (對應 Equipment 的人生經歷)
+// ==========================================
+
+// 1. 借用單 (Loan) - 代表一次完整的借用行為，可能同時借了多台設備
+model Loan {
+  id               String     @id @default(cuid())
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  startDate        DateTime   // 開始借用日期
+  endDate          DateTime   // 預計歸還日期
+  actualReturnDate DateTime?  // 實際歸還日期 (有值代表已全數歸還)
+  
+  status           String     @default("PENDING") // PENDING(待審核), APPROVED(已借出), RETURNED(已歸還), CANCELLED(取消)
+
+  // 借用人/負責人 (如果是員工)
+  userId           String?
+  // user             User?      @relation(fields: [userId], references: [id]) // 如果你有 User Model 請取消這行註解
+  
+  borrowerName     String?    // 外部借用人名稱 (如果不是系統內員工)
+  reason           String?    // 借用原因/專案名稱
+
+  // 一張借用單可以包含多個借用明細 (多台設備)
+  items            LoanItem[]
+}
+
+// 2. 借用明細 (LoanItem) - 連接「借用單」與「設備」的中間表
+model LoanItem {
+  id               String    @id @default(cuid())
+  
+  // 關聯到借用單
+  loanId           String
+  loan             Loan      @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  
+  // 關聯到設備本身
+  equipmentId      String
+  equipment        Equipment @relation(fields: [equipmentId], references: [id])
+  
+  // 單一設備歸還狀況 (可能部分先還)
+  returnedAt       DateTime? // 實際歸還時間
+  condition        String?   // 歸還時的狀況 (例如: "完好", "有刮傷")
+  note             String?   // 備註
+  
+  @@unique([loanId, equipmentId]) // 確保同一張單不會重複借同一台機器兩次
+}
+
+// 3. 維修紀錄 (MaintenanceRecord) - 記錄設備的「病歷」
+model MaintenanceRecord {
+  id               String    @id @default(cuid())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // 關聯到設備本身
+  equipmentId      String
+  equipment        Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  type             String    // 維修類型 (例如: "REPAIR"(修理), "MAINTENANCE"(例行保養))
+  status           String    @default("IN_PROGRESS") // IN_PROGRESS(維修中), COMPLETED(已完成)
+  
+  startDate        DateTime  // 送修日期
+  endDate          DateTime? // 完修日期
+  
+  description      String    // 故障描述 / 保養內容
+  cost             Float     @default(0) // 維修費用
+  technician       String?   // 維修人員 / 外部維修廠商名稱
+  
+  notes            String?   // 內部備註
+}
+// 1. 定義計費單位的 Enum
+enum BillingType {
+  HOURLY
+  DAILY
+  FLAT_RATE // 計次/買斷
+  NONE    // 不計費 (免費借用)
+}
+
+// // 2. 擴充原本的借用紀錄表 (BorrowRecord 或 EquipmentTransaction)
+// model EquipmentBorrowRecord {
+//   id                String    @id @default(cuid())
+//   equipmentId       String
+//   projectId         String?
+//   borrowedById      String?
+//   externalRecipient String?
+  
+//   // 原本的借還時間
+//   borrowedAt        DateTime  @default(now())
+//   dueAt             DateTime?
+//   returnedAt        DateTime?
+  
+//   // 👇 新增：計費相關欄位 (想法一)
+//   rentalRate        Float?    // 例如: 1500
+//   rateUnit          RateUnit? // 例如: DAILY (每日)
+//   totalFee          Float?    // 歸還結算時的總金額
+
+//   // 👇 新增：關聯到實際使用紀錄 (一對多)
+//   usageLogs         EquipmentUsageLog[]
+// }
+
+// // 3. 👇 新增：實際使用日誌表 (想法二)
+// model EquipmentUsageLog {
+//   id              String   @id @default(cuid())
+  
+//   // 關聯到哪一次的借用單
+//   borrowRecordId  String
+//   borrowRecord    EquipmentBorrowRecord @relation(fields: [borrowRecordId], references: [id])
+  
+//   // 具體使用時間記錄
+//   usedAt          DateTime // 記錄具體日期與時間 (例如: 2026-05-01 13:30)
+//   durationHours   Float?   // 這次使用了幾小時 (選填)
+  
+//   // 上下午區分 (雖然 DateTime 可以推算，但實務上常常獨立一個欄位方便過濾)
+//   timeSlot        String?  // "AM", "PM", 或 "FULL_DAY"
+  
+//   notes           String?  // 這次使用的備註 (例如: 挖土機用於整地)
+//   createdAt       DateTime @default(now())
+// }
+
+
+// ==========================================
+// 1. 報價與銷售階段 (滿足功能一)
+// ==========================================
+
+model Quotation {
+  id            String   @id @default(cuid())
+  title         String   // 例如：某某公司網站建置案
+  status        QuoteStatus @default(NEGOTIATING)
+
+  // 關聯人員
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  
+  salesId       String
+  sales         User     @relation("SalesQuotations", fields: [salesId], references: [id])
+
+  // 金錢欄位 (底層全存，靠 tRPC 卡控可見度)
+  baseCost      Decimal? // Admin 評估的底線成本 (5元)
+  agreedCost    Decimal? // Admin 與 Sales 談好的內部價 (10元)
+  customerPrice Decimal? // Sales 報給客人的最終價 (20元)
+  pmBudget      Decimal? // 專案成立後，給 PM 執行的資金/預算
+
+  // 成功後轉成的專案 (1對1)
+  projectId     String?  @unique
+  project       Project? @relation(fields: [projectId], references: [id])
+
+  // 雙通道對話紀錄
+  // 👇 這裡變成「兩個對話 data」 👇
+  internalMessages InternalQuoteMessage[] // 只有 Admin/Sales 可以讀寫
+  externalMessages ExternalQuoteMessage[] // Sales/Customer 可以讀寫
+
+  QuoteMessage QuoteMessage[]
+
+  companyProfileId String?
+  companyProfile   CompanyProfile? @relation(fields: [companyProfileId], references: [id])
+  
+  totalAmount   Decimal  @default(0) // ★ 報價單下方結算總價
+
+    // 關聯到報價明細列表
+  items         QuotationItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum QuoteStatus {
+  DRAFT
+  NEGOTIATING // 交涉中
+  WON         // 贏單 (可轉專案)
+  LOST        // 輸單
+}
+
+// 報價對話紀錄 (滿足功能一的雙通道對話)
+model QuoteMessage {
+  id          String   @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id])
+  
+  senderId    String   // 發送者 ID (可能是 User ID 也可能是 Customer ID)
+  content     String   // 對話內容
+  
+  // 關鍵：用這個來區分是內部對話還是外部對話
+  visibility  MessageVisibility 
+
+  createdAt   DateTime @default(now())
+}
+
+enum MessageVisibility {
+  INTERNAL // Admin 與 Sales 的私下溝通 (客戶絕對看不到)
+  EXTERNAL // Sales 與 客戶 的溝通 (Admin也能看，但這是對外的)
+}
+
+
+
+// 數據 1：內部對話 (只有 Admin 跟 Sales 看得到)
+model InternalQuoteMessage {
+  id          String    @id @default(cuid())
+  content     String
+  
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  
+  // 發送者「必定」是內部員工 (Admin 或 Sales)
+  senderId    String
+  sender      User      @relation(fields: [senderId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+}
+
+// 數據 2：外部對話 (Sales 跟 客戶 的對話)
+model ExternalQuoteMessage {
+  id               String    @id @default(cuid())
+  content          String
+  
+  quotationId      String
+  quotation        Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  
+  // 發送者可能是「內部員工(Sales)」，也可能是「外部客戶(Customer)」
+  senderUserId     String?
+  senderUser       User?     @relation(fields: [senderUserId], references: [id])
+  
+  senderCustomerId String?
+  senderCustomer   Customer? @relation(fields: [senderCustomerId], references: [id])
+  
+  createdAt        DateTime  @default(now())
+}
+
+
+
+// 銷售與客戶的獨立對話記錄
+model SalesCustomerConversation {
+  id          String   @id @default(cuid())
+  content     String   // 對話內容
+  createdAt   DateTime @default(now())
+  
+// 這裡加上發送者類型，用來辨識是客戶還是業務發的 (例如 "CUSTOMER" 或 "SALES")
+  senderType  String   @default("CUSTOMER") 
+
+  // 關聯
+  salesId     String
+  sales       User     @relation(fields: [salesId], references: [id])
+  
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  
+  // 是否已讀 (可選)
+  isRead      Boolean  @default(false)
+  
+  @@index([salesId, customerId])
+  @@map("sales_customer_conversations")
+}
+
+// 新增合作申請表模型
+model CollaborationRequest {
+  id              String   @id @default(cuid())
+  customer        Customer @relation(fields: [customerId], references: [id])
+  customerId      String
+  
+  companyName     String
+  contactPhone    String
+  requirements    String   @db.Text // 客戶詳細需求
+  
+  // 最重要的：參考作品 (留空或指定)
+  referenceProjectId String?
+  referenceProject   Project? @relation("ReferenceProject", fields: [referenceProjectId], references: [id])
+  
+  status          String   @default("PENDING") // PENDING, PROCESSING, REJECTED, QUOTED
+  createdAt       DateTime @default(now())
+}
+
+// 1. 預設的公司抬頭與 Logo 模組 (可供多公司/多品牌報價使用)
+model CompanyProfile {
+  id          String      @id @default(cuid())
+  name        String      @unique // 例如："A科技股份有限公司", "B設計工作室"
+  logoUrl     String?     // 公司 Logo 圖片網址
+  address     String?
+  phone       String?
+  taxId       String?     // 統編
+  
+  quotations  Quotation[] // 關聯到報價單
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+// 2. Admin 預先定義的服務項目 (可重複使用的商品/服務)
+model Service {
+  id          String      @id @default(cuid())
+  name        String      // 例如："進階 UI/UX 設計", "年度主機維護"
+  description String?
+  basePrice   Decimal     @default(0) // 預設參考價格
+  type        String      // 服務類型 (例如："DESIGN", "DEVELOPMENT", "MAINTENANCE")
+  price       Decimal     @default(0) // 預設參考價錢
+  isActive    Boolean     @default(true)
+  
+  // 紀錄這項服務被用在哪些報價項目中
+  quoteItems  QuotationItem[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+// 3. 報價單內的「收費明細列表」(Line Items)
+model QuotationItem {
+  id          String      @id @default(cuid())
+  quotationId String
+  quotation   Quotation   @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  
+  serviceId   String
+  service     Service     @relation(fields: [serviceId], references: [id])
+  
+  customName  String?     // 允許業務針對此單修改服務名稱
+  quantity    Int         @default(1) // 數量
+  unitPrice   Decimal     // 實際報價單價
+  subtotal    Decimal     // 小計 (quantity * unitPrice)
+  @@index([quotationId])
+}
+// 實際使用時間明細表（解決「什麼時候會用」的多筆記錄需求）
+model EquipmentUsageSchedule {
+  id               String      @id @default(cuid())
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // 關聯到哪一次借用記錄
+  equipmentLogId   String
+  equipmentLog     EquipmentLog @relation(fields: [equipmentLogId], references: [id], onDelete: Cascade)
+
+  // 實際預計使用的開始與結束時間（精準到分鐘）
+  usageStart       DateTime    // 例如：2026-04-17 12:00:00（第2天中午）
+  usageEnd         DateTime?   // 可選，如果只有開始時間可不填結束
+
+  // 額外說明（選填）
+  note             String?     // 例如："用於外拍空鏡頭" 或 "只用下午時段"
+
+  @@index([equipmentLogId])
+  @@index([usageStart])   // 方便按時間範圍查詢
+}

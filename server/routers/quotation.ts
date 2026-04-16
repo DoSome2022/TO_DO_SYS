@@ -1,0 +1,618 @@
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+// import { protectedProcedure, router, salesProcedure } from "../router";
+import { createQuotationSchema, updateQuotationStatusSchema } from "@/lib/schemas/quotation";
+import { protectedProcedure, router, salesProcedure } from "../trpc";
+
+
+
+
+export const quotationRouter = router({
+  // ==========================================
+  // 核心 CRUD 功能 (新增)
+  // ==========================================
+
+  // 取得所有報價單 (根據權限過濾)
+  getQuotations: protectedProcedure
+    .input(
+      z.object({
+        status: z.enum(["DRAFT", "NEGOTIATING", "WON", "LOST"]).optional(),
+        limit: z.number().min(1).max(100).default(20),
+        cursor: z.string().optional(),
+      }).optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id!;
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        include: { position: true },
+      });
+
+      const isCustomer = !user;
+      const isAdmin = user?.position?.name?.toLowerCase().includes("admin") || 
+                      user?.role === "ADMIN";
+
+      // 建立過濾條件
+      const where: any = {};
+
+      if (isCustomer) {
+        // 客戶只能看自己的報價單
+        where.customerId = userId;
+      } else if (!isAdmin) {
+        // 一般員工只能看自己負責的報價單
+        where.salesId = userId;
+      }
+      // Admin 可以看全部
+
+      if (input?.status) {
+        where.status = input.status;
+      }
+
+      const quotations = await ctx.db.quotation.findMany({
+        where,
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              companyname: true,
+              contactname: true,
+            },
+          },
+          sales: {
+            select: {
+              id: true,
+              name: true,
+              role: true,
+            },
+          },
+          project: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+            },
+          },
+          _count: {
+            select: {
+              internalMessages: true,
+              externalMessages: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: input?.limit || 20,
+        skip: input?.cursor ? 1 : 0,
+        cursor: input?.cursor ? { id: input.cursor } : undefined,
+      });
+
+      let nextCursor: string | undefined = undefined;
+      if (quotations.length === (input?.limit || 20)) {
+        nextCursor = quotations[quotations.length - 1].id;
+      }
+
+      return {
+        quotations,
+        nextCursor,
+      };
+    }),
+
+  // 取得單一報價單詳情
+  getQuotationById: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id!;
+      const user = await ctx.db.user.findUnique({ where: { id: userId } });
+      const isCustomer = !user;
+      const isAdmin = user?.role === "ADMIN";
+
+      const quotation = await ctx.db.quotation.findUnique({
+        where: { id: input.id },
+        include: {
+          customer: true,
+          sales: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          project: true,
+          internalMessages: {
+            include: {
+              sender: {
+                select: { id: true, name: true, role: true },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
+          externalMessages: {
+            include: {
+              senderUser: {
+                select: { id: true, name: true, role: true },
+              },
+              senderCustomer: {
+                select: { id: true, name: true, companyname: true },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      });
+
+      if (!quotation) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "報價單不存在" });
+      }
+
+      // 權限檢查
+      if (isCustomer && quotation.customerId !== userId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "無權查看此報價單" });
+      }
+
+      if (!isCustomer && !isAdmin && quotation.salesId !== userId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "只能查看自己負責的報價單" });
+      }
+
+      return quotation;
+    }),
+
+  // 建立報價單 (Sales 專用)
+  createQuotation: salesProcedure
+    .input(createQuotationSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const quotation = await ctx.db.quotation.create({
+          data: {
+            title: input.title,
+            customerPrice: input.customerPrice,
+            status: "DRAFT",
+            salesId: ctx.session.user.id!,
+            customerId: input.customerId,
+          },
+          include: {
+            customer: true,
+            sales: true,
+          },
+        });
+
+        return { success: true, quotation };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "建立失敗",
+        });
+      }
+    }),
+
+  // 更新報價單
+  updateQuotation: salesProcedure
+    .input(updateQuotationStatusSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { quotationId, ...data } = input;
+
+      // 檢查報價單是否存在且屬於該 Sales
+      const existing = await ctx.db.quotation.findFirst({
+        where: { id: quotationId, salesId: ctx.session.user.id! },
+      });
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "報價單不存在或無權限修改" });
+      }
+
+      const quotation = await ctx.db.quotation.update({
+        where: { id: quotationId },
+        data,
+        include: {
+          customer: true,
+          project: true,
+        },
+      });
+
+      return { success: true, quotation };
+    }),
+
+  // 更新報價單狀態
+  updateQuotationStatus: salesProcedure
+    .input(updateQuotationStatusSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { quotationId, status } = input;
+
+      const existing = await ctx.db.quotation.findFirst({
+        where: { id: quotationId, salesId: ctx.session.user.id! },
+        include: { project: true },
+      });
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "報價單不存在或無權限修改" });
+      }
+
+      // 如果狀態改為 WON，可以選擇自動建立專案
+      let projectId = existing.projectId;
+      if (status === "WON" && !existing.projectId) {
+        // 可選：自動建立關聯專案
+        const project = await ctx.db.project.create({
+          data: {
+            title: existing.title,
+            customerPrice: existing.customerPrice,
+            status: "IN_PROGRESS",
+            salesId: ctx.session.user.id!,
+            customerId: existing.customerId,
+            quotationId: existing.id,
+          },
+        });
+        projectId = project.id;
+      }
+
+      const quotation = await ctx.db.quotation.update({
+        where: { id: quotationId },
+        data: { 
+          status,
+          projectId: projectId || undefined,
+        },
+        include: {
+          customer: true,
+          project: true,
+        },
+      });
+
+      return { success: true, quotation };
+    }),
+
+  // 刪除報價單 (草稿狀態才能刪除)
+  deleteQuotation: salesProcedure
+    .input(z.object({ quotationId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.quotation.findFirst({
+        where: { 
+          id: input.quotationId, 
+          salesId: ctx.session.user.id!,
+          status: "DRAFT",
+        },
+      });
+
+      if (!existing) {
+        throw new TRPCError({ 
+          code: "FORBIDDEN", 
+          message: "只能刪除自己建立的草稿報價單" 
+        });
+      }
+
+      await ctx.db.quotation.delete({
+        where: { id: input.quotationId },
+      });
+
+      return { success: true };
+    }),
+
+  // 取得 Sales 的統計數據
+  getSalesStats: protectedProcedure
+    .query(async ({ ctx }) => {
+      const userId = ctx.session.user.id!;
+      const user = await ctx.db.user.findUnique({ where: { id: userId } });
+      
+      if (!user) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "只有員工能查看統計" });
+      }
+
+      const [
+        quotationsCount,
+        wonQuotationsCount,
+        totalQuotationValue,
+        projectsCount,
+        activeProjectsCount,
+        customersCount,
+      ] = await Promise.all([
+        ctx.db.quotation.count({
+          where: { salesId: userId, status: { not: "DRAFT" } },
+        }),
+        ctx.db.quotation.count({
+          where: { salesId: userId, status: "WON" },
+        }),
+        ctx.db.quotation.aggregate({
+          where: { salesId: userId, status: "WON" },
+          _sum: { customerPrice: true },
+        }),
+        ctx.db.project.count({
+          where: { salesId: userId },
+        }),
+        ctx.db.project.count({
+          where: { salesId: userId, status: { not: "COMPLETED" } },
+        }),
+        ctx.db.customer.count({
+          where: {
+            quotations: {
+              some: { salesId: userId },
+            },
+          },
+        }),
+      ]);
+
+    // ✅ 將 Decimal 轉換為 number
+    const rawTotal = totalQuotationValue._sum.customerPrice;
+    const convertedTotal = rawTotal ? Number(rawTotal) : 0;
+
+      return {
+        quotationsCount,
+        wonQuotationsCount,
+        totalQuotationValue: convertedTotal,
+        projectsCount,
+        activeProjectsCount,
+        customersCount,
+        winRate: quotationsCount > 0 
+          ? (wonQuotationsCount / quotationsCount) * 100 
+          : 0,
+      };
+    }),
+
+
+// 取得 Sales 的報價單列表
+getSalesQuotations: protectedProcedure
+  .query(async ({ ctx }) => {
+    const userId = ctx.session.user.id!;
+    const user = await ctx.db.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "只有員工能查看" });
+    }
+
+    const quotations = await ctx.db.quotation.findMany({
+      where: { salesId: userId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            companyname: true,
+            contactname: true,
+          },
+        },
+        project: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+          },
+        },
+        _count: {
+          select: {
+            internalMessages: true,
+            externalMessages: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+
+    // ✅ 轉換 Decimal 為 number
+    return quotations.map((q) => ({
+      ...q,
+      customerPrice: q.customerPrice ? Number(q.customerPrice) : null,
+    }));
+  }),
+
+  // 取得 Sales 的專案列表
+getSalesProjects: protectedProcedure
+  .query(async ({ ctx }) => {
+    const userId = ctx.session.user.id!;
+    const user = await ctx.db.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "只有員工能查看" });
+    }
+
+    const projects = await ctx.db.project.findMany({
+      where: { salesId: userId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            companyname: true,
+          },
+        },
+        pm: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        phases: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+        workItems: {
+          where: { isCompleted: false },
+          select: { id: true },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+    });
+
+    // ✅ 轉換 Decimal 為 number，並計算完成度
+    return projects.map((project) => {
+      const totalPhases = project.phases.length;
+      const completedPhases = project.phases.filter(
+        (p) => p.status === "COMPLETED"
+      ).length;
+      const progress = totalPhases > 0 ? (completedPhases / totalPhases) * 100 : 0;
+      const pendingWorkItems = project.workItems.length;
+
+      return {
+        ...project,
+        customerPrice: project.customerPrice ? Number(project.customerPrice) : null,
+        progress,
+        pendingWorkItems,
+      };
+    });
+  }),
+// 取得 Sales 的客戶列表
+getSalesCustomers: protectedProcedure
+  .query(async ({ ctx }) => {
+    const userId = ctx.session.user.id!;
+    const user = await ctx.db.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "只有員工能查看" });
+    }
+
+    const customers = await ctx.db.customer.findMany({
+      where: {
+        quotations: {
+          some: { salesId: userId },
+        },
+      },
+      include: {
+        quotations: {
+          where: { salesId: userId },
+          select: {
+            id: true,
+            status: true,
+            customerPrice: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+        },
+        _count: {
+          select: {
+            quotations: {
+              where: { salesId: userId },
+            },
+            Project: {
+              where: { salesId: userId },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+    });
+
+    // ✅ 轉換 quotations 中的 Decimal 為 number
+    return customers.map((customer) => ({
+      ...customer,
+      quotations: customer.quotations.map((q) => ({
+        ...q,
+        customerPrice: q.customerPrice ? Number(q.customerPrice) : null,
+      })),
+    }));
+  }),
+  // 取得可選擇的客戶（用於建立報價單）
+  getAvailableCustomers: protectedProcedure
+    .query(async ({ ctx }) => {
+      const userId = ctx.session.user.id!;
+      const user = await ctx.db.user.findUnique({ where: { id: userId } });
+
+      if (!user) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "只有員工能查看" });
+      }
+
+      // 顯示該 Sales 曾經報價過的客戶
+      const customers = await ctx.db.customer.findMany({
+        where: {
+          quotations: {
+            some: { salesId: userId },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+      });
+
+      return customers;
+    }),
+
+  // ==========================================
+  // 2. 內部對話 (保留您原有的)
+  // ==========================================
+
+  getInternalMessages: protectedProcedure
+    .input(z.object({ quotationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id!;
+      const user = await ctx.db.user.findUnique({ where: { id: userId } });
+      
+      if (!user) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "客戶無法讀取內部對話" });
+      }
+
+      return ctx.db.internalQuoteMessage.findMany({
+        where: { quotationId: input.quotationId },
+        include: { sender: { select: { name: true, role: true } } }, 
+        orderBy: { createdAt: "asc" },
+      });
+    }),
+
+  sendInternalMessage: protectedProcedure
+    .input(z.object({ 
+      quotationId: z.string(), 
+      content: z.string().min(1) 
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id!;
+      const user = await ctx.db.user.findUnique({ where: { id: userId } });
+
+      if (!user) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "客戶無法發送內部對話" });
+      }
+
+      return ctx.db.internalQuoteMessage.create({
+        data: {
+          quotationId: input.quotationId,
+          content: input.content,
+          senderId: userId,
+        },
+      });
+    }),
+
+  // ==========================================
+  // 3. 外部對話 (保留您原有的)
+  // ==========================================
+
+  getExternalMessages: protectedProcedure
+    .input(z.object({ quotationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id!;
+      const user = await ctx.db.user.findUnique({ where: { id: userId } });
+      const isCustomer = !user;
+      
+      if (isCustomer) {
+        const quote = await ctx.db.quotation.findUnique({ where: { id: input.quotationId } });
+        if (quote?.customerId !== userId) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "無權查看別人的報價單" });
+        }
+      }
+
+      return ctx.db.externalQuoteMessage.findMany({
+        where: { quotationId: input.quotationId },
+        include: {
+          senderUser: { select: { name: true, role: true } },     
+          senderCustomer: { select: { name: true } },             
+        },
+        orderBy: { createdAt: "asc" },
+      });
+    }),
+
+  sendExternalMessage: protectedProcedure
+    .input(z.object({ 
+      quotationId: z.string(), 
+      content: z.string().min(1) 
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id!;
+      const user = await ctx.db.user.findUnique({ where: { id: userId } });
+      const isCustomer = !user; 
+
+      return ctx.db.externalQuoteMessage.create({
+        data: {
+          quotationId: input.quotationId,
+          content: input.content,
+          senderCustomerId: isCustomer ? userId : null,
+          senderUserId: !isCustomer ? userId : null,
+        },
+      });
+    }),
+});
