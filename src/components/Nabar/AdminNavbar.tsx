@@ -25,13 +25,14 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
   PM: [
     { label: "專案看板", href: "/dashboard" },
     { label: "項目管理", href: "/projects" },
-    { label: "工作分派", href: "/todos" },
+    { label: "記事版", href: "/pm/todos" },
     { label: "設備借用", href: "/equipment" },
   ],
   STAFF: [
     { label: "個人首頁", href: "/dashboard" },
     { label: "我的任務", href: "/dashboard/mytasks" },
-    { label: "工作版本", href: "/work-versions" },
+    { label: "工作版本", href: "/dashboard/workversions" },
+    { label: "記事版", href: "/staff/todos" },
   ],
 };
 

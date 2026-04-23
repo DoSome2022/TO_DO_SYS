@@ -80,9 +80,9 @@ export default function AdminDashboard() {
           <button className="px-4 py-2 bg-white dark:bg-slate-800 border rounded-md shadow-sm hover:bg-slate-50 transition text-sm flex items-center gap-2">
             <HardDrive className="w-4 h-4" /> 設備盤點與採購
           </button>
-          <button className="px-4 py-2 bg-white dark:bg-slate-800 border rounded-md shadow-sm hover:bg-slate-50 transition text-sm flex items-center gap-2">
+          {/* <button className="px-4 py-2 bg-white dark:bg-slate-800 border rounded-md shadow-sm hover:bg-slate-50 transition text-sm flex items-center gap-2">
             <Settings className="w-4 h-4" /> 全域參數設定
-          </button>
+          </button> */}
         </div>
       </div>
     </div>

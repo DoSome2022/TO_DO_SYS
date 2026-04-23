@@ -3,29 +3,34 @@ import { db } from "@/app/lib/prisma";
 import { publicProcedure, router } from "../trpc";
 import z from "zod";
 
+
+
 export const WorkVersionRouter = router({
     // 1. 員工功能：建立新版本，上傳到專案池子 (不綁定 Phase)
     createVersion: publicProcedure
         .input(z.object({
-            projectId: z.string(), // ★ 必填：知道是上傳到哪個專案的池子
-            userId: z.string(),    // ★ 必填：知道是哪個員工上傳的
-            versionName: z.string(),      // 版本名稱 (例如 "首頁切版 v1", "登入API v2")
-            contentUrl: z.string().optional(), // 檔案連結或 Github commit 網址
-            note: z.string().optional(), // 若有備註或文字內容可以放這
+            projectId: z.string(),
+            userId: z.string(),
+            versionName: z.string(),
+            note: z.string().optional(),
+            // 👇 直接改為接收「字串」即可，因為前端已經把檔案傳到 OSS 並拿到網址了
+            contentUrl: z.string().optional(), 
         }))
         .mutation(async ({ input }) => {
+            // 直接將網址與其他資料一起寫入 PostgreSQL，非常乾淨！
             const newVersion = await db.workVersion.create({
                 data: {
                     projectId: input.projectId,
                     userId: input.userId,
                     versionName: input.versionName,
-                    contentUrl: input.contentUrl,
                     note: input.note,
-                    // 注意：這裡不傳入 phaseId，所以預設為 null (留在池子裡)
+                    contentUrl: input.contentUrl, // ★ 存入前端傳過來的字串網址
                 },
             });
             return newVersion;
         }),
+
+        
 
     // 2. PM 功能：將指定的版本從池子中挑選出來，綁定到特定的「階段」
     assignVersionToPhase: publicProcedure

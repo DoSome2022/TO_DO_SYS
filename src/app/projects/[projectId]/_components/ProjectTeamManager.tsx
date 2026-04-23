@@ -9,29 +9,31 @@ import { toast } from "sonner";
 export default function ProjectTeamManager({ projectId }: { projectId: string }) {
   const [selectedUserId, setSelectedUserId] = useState("");
 
-  // 1. 抓取專案資訊 (包含目前綁定的員工)
-  const { data: project, refetch: refetchProject } = trpc.project.getProject.useQuery({ id: projectId });
+  // 1. 抓取專案資訊 (包含目前成員)
+  const { data: project, refetch: refetchProject } = trpc.project.getProject.useQuery({ 
+    id: projectId 
+  });
   
-  // 2. 抓取系統所有員工名單 (準備放進下拉選單)
-  const { data: allUsers } = trpc.user.getAllStaff.useQuery();
+  // 2. ★ 修改：改用專門給 PM 指派的員工清單（只包含 STAFF）
+  const { data: assignableStaff = [] } = trpc.user.getAssignableStaff.useQuery();
 
   // 3. 綁定員工 Mutation
   const assignMutation = trpc.project.assignUserToProject.useMutation({
     onSuccess: () => {
-      toast.success("已成功指派員工");
-      setSelectedUserId(""); // 清空選擇
-      refetchProject(); // 重新抓取專案資料更新畫面
+      toast.success("已成功指派員工到專案");
+      setSelectedUserId("");
+      refetchProject();
     },
-    onError: (err) => toast.error("指派失敗: " + err.message)
+    onError: (err) => toast.error(`指派失敗: ${err.message}`),
   });
 
   // 4. 解除綁定 Mutation
   const removeMutation = trpc.project.removeUserFromProject.useMutation({
     onSuccess: () => {
-      toast.success("已移除員工");
+      toast.success("已成功移除員工");
       refetchProject();
     },
-    onError: (err) => toast.error("移除失敗: " + err.message)
+    onError: (err) => toast.error(`移除失敗: ${err.message}`),
   });
 
   const handleAssign = () => {
@@ -45,8 +47,8 @@ export default function ProjectTeamManager({ projectId }: { projectId: string })
     }
   };
 
-  // 過濾掉已經在專案內的員工，只顯示還沒加入的
-  const availableUsers = allUsers?.filter(
+  // 過濾掉已經在專案內的員工
+  const availableUsers = assignableStaff.filter(
     user => !project?.users?.some(assigned => assigned.id === user.id)
   );
 
@@ -57,6 +59,7 @@ export default function ProjectTeamManager({ projectId }: { projectId: string })
           <Users className="w-5 h-5 text-indigo-600" />
           參與員工
         </h3>
+        <span className="text-xs text-gray-500">僅可指派一般員工 (STAFF)</span>
       </div>
 
       <div className="p-4 space-y-4">
@@ -66,57 +69,70 @@ export default function ProjectTeamManager({ projectId }: { projectId: string })
             value={selectedUserId}
             onChange={(e) => setSelectedUserId(e.target.value)}
             className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            disabled={assignMutation.isPending}
           >
             <option value="">選擇要指派的員工...</option>
-            {availableUsers?.map(user => (
+            {availableUsers.map(user => (
               <option key={user.id} value={user.id}>
-                {user.name} ({user.email})
+                {user.name} 
+                {user.position?.name && ` (${user.position.name})`}
+                {user.email && ` — ${user.email}`}
               </option>
             ))}
           </select>
+
           <button 
             onClick={handleAssign}
             disabled={!selectedUserId || assignMutation.isPending}
-            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-3 py-2 rounded flex items-center gap-1 transition-colors text-sm"
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-4 py-2 rounded flex items-center gap-1 transition-colors text-sm whitespace-nowrap"
           >
-            {assignMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+            {assignMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <UserPlus className="w-4 h-4" />
+            )}
             指派
           </button>
         </div>
 
         {/* 目前專案成員列表 */}
         <div>
-          <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">目前成員</h4>
+          <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3 tracking-widest">
+            目前專案成員 ({project?.users?.length || 0})
+          </h4>
+
           {project?.users?.length === 0 ? (
-            <p className="text-sm text-gray-400">目前尚無指派員工</p>
+            <p className="text-sm text-gray-400 py-4 text-center">目前尚無指派任何員工</p>
           ) : (
             <ul className="space-y-2">
-              {project?.users?.map(user => {
-                // ★ 修改 2：先定義好安全的顯示名稱
+              {project?.users?.map((user: any) => {
                 const displayName = user.name || "未知使用者";
                 const displayEmail = user.email || "無信箱";
-                // 安全地取得頭像的第一個字母
                 const initial = displayName.charAt(0).toUpperCase();
 
                 return (
-                  <li key={user.id} className="flex items-center justify-between p-2 hover:bg-gray-50 border rounded text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
-                        {/* ★ 修改 3：使用安全的字母 */}
+                  <li 
+                    key={user.id} 
+                    className="flex items-center justify-between p-3 hover:bg-gray-50 border border-gray-100 rounded-lg text-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-lg">
                         {initial}
                       </div>
                       <div>
-                        {/* ★ 修改 4：使用安全的名稱與信箱 */}
                         <p className="font-medium text-gray-800">{displayName}</p>
-                        <p className="text-xs text-gray-500">{displayEmail}</p>
+                        <p className="text-xs text-gray-500">
+                          {user.position?.name || "員工"} • {displayEmail}
+                        </p>
                       </div>
                     </div>
+
                     <button 
                       onClick={() => handleRemove(user.id)}
-                      className="text-gray-400 hover:text-red-500 p-1"
-                      title="移除員工"
+                      className="text-gray-400 hover:text-red-600 p-2 transition-colors"
+                      title="移除此員工"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-5 h-5" />
                     </button>
                   </li>
                 );

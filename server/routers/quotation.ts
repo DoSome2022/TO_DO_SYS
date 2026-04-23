@@ -2,7 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 // import { protectedProcedure, router, salesProcedure } from "../router";
 import { createQuotationSchema, updateQuotationStatusSchema } from "@/lib/schemas/quotation";
-import { protectedProcedure, router, salesProcedure } from "../trpc";
+import { protectedProcedure, publicProcedure, router, salesProcedure } from "../trpc";
+import { db } from "@/app/lib/prisma";
 
 
 
@@ -119,6 +120,11 @@ export const quotationRouter = router({
             },
           },
           project: true,
+        items: {  // 👈 加上這個
+          include: {
+            service: true,
+          },
+        },
           internalMessages: {
             include: {
               sender: {
@@ -615,4 +621,143 @@ getSalesCustomers: protectedProcedure
         },
       });
     }),
+  // 獲取報價單詳細資料
+  getQuotationDetail: publicProcedure
+    .input(z.object({
+      quotationId: z.string(),
+      projectId: z.string(),
+    }))
+    .query(async ({ input }) => {
+      const quotation = await db.quotation.findFirst({
+        where: {
+          id: input.quotationId,
+          projectId: input.projectId,
+        },
+        include: {
+          companyProfile: true,
+          items: {
+            include: {
+              service: true,
+            },
+          },
+        },
+      });
+
+      if (!quotation) {
+        throw new Error("報價單不存在");
+      }
+
+      // 獲取所有版本（這裡假設您有版本表，如果沒有需要先建立）
+      const versions = await db.quotationVersion.findMany({
+        where: { quotationId: quotation.id },
+        orderBy: { versionNumber: 'desc' },
+      });
+
+      return {
+        ...quotation,
+        versions: versions.length > 0 ? versions : [{
+          id: quotation.id,
+          versionNumber: 1,
+          title: quotation.title,
+          status: quotation.status,
+          totalAmount: quotation.totalAmount,
+          createdAt: quotation.createdAt,
+          isLatest: true,
+          notes: null,
+        }],
+        currentVersionId: versions.find(v => v.isLatest)?.id || quotation.id,
+      };
+    }),
+
+  // 切換報價單版本
+  switchQuotationVersion: publicProcedure
+    .input(z.object({
+      quotationId: z.string(),
+      versionId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      // 更新當前版本
+      await db.quotation.update({
+        where: { id: input.quotationId },
+        data: {
+          // 根據 versionId 更新對應的報價單內容
+        },
+      });
+
+      return { success: true, versionNumber: 1 };
+    }),
+// 建立新版本
+  createQuotationVersion: publicProcedure
+    .input(z.object({
+      quotationId: z.string(),
+      notes: z.string().optional(),
+      changeLog: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      // 獲取當前報價單
+      const currentQuotation = await db.quotation.findUnique({
+        where: { id: input.quotationId },
+        include: {
+          items: {
+            include: { service: true },
+          },
+        },
+      });
+
+      if (!currentQuotation) {
+        throw new Error("報價單不存在");
+      }
+
+      // 獲取最大版本號
+      const maxVersion = await db.quotationVersion.aggregate({
+        where: { quotationId: input.quotationId },
+        _max: { versionNumber: true },
+      });
+
+      const newVersionNumber = (maxVersion._max.versionNumber || 0) + 1;
+
+      // 將舊版本標記為非最新
+      await db.quotationVersion.updateMany({
+        where: { 
+          quotationId: input.quotationId,
+          isLatest: true,
+        },
+        data: { isLatest: false },
+      });
+
+      // 建立新版本
+      const newVersion = await db.quotationVersion.create({
+        data: {
+          versionNumber: newVersionNumber,
+          title: currentQuotation.title,
+          status: currentQuotation.status,
+          baseCost: currentQuotation.baseCost,
+          agreedCost: currentQuotation.agreedCost,
+          customerPrice: currentQuotation.customerPrice,
+          pmBudget: currentQuotation.pmBudget,
+          totalAmount: currentQuotation.totalAmount,
+          notes: input.notes,
+          changeLog: input.changeLog,
+          isLatest: true,
+          quotationId: input.quotationId,
+          snapshot: {
+            title: currentQuotation.title,
+            items: currentQuotation.items,
+            totalAmount: currentQuotation.totalAmount,
+            customerPrice: currentQuotation.customerPrice,
+          },
+        },
+      });
+
+      // 更新報價單的當前版本
+      await db.quotation.update({
+        where: { id: input.quotationId },
+        data: { currentVersionId: newVersion.id },
+      });
+
+      return newVersion;
+    }),
+
+
+
 });

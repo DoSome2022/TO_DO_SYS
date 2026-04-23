@@ -145,6 +145,35 @@ getPositionsForDropdown: protectedProcedure.query(async () => {
   });
 }),
 
+// server/routers/user.ts
+
+  // ★ 正確版本：專門給 PM 指派專案成員使用的員工清單（只回傳 STAFF）
+  getAssignableStaff: protectedProcedure
+    .query(async () => {
+      return await db.user.findMany({
+        where: { 
+          isActive: true,
+          role: "STAFF"                    // 只允許一般員工
+        },
+        orderBy: { 
+          name: "asc" 
+        },
+        // 使用 select + nested select（不要同時用 include）
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          position: {                      // 關聯的 position 只取需要的欄位
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        }
+      });
+    }),
+
+    
   getUserById: protectedProcedure
     .input(z.object({
       id: z.string(),
@@ -182,6 +211,8 @@ getPositionsForDropdown: protectedProcedure.query(async () => {
         dynamicFeatures: user.position?.features || [],
       };
     }),
+
+    
 
 
 });

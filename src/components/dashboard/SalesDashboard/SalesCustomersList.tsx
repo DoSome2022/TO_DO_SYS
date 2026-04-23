@@ -14,8 +14,6 @@ import {
   ExternalLink,
   Search,
   FileText,
-  FolderOpen,
-  Calendar,
   ChevronDown,
   ChevronUp,
   MessageCircle, // ✅ 引入對話圖示
@@ -257,7 +255,7 @@ export default function SalesCustomersList({ customers }: SalesCustomersListProp
                         
                         {/* 3. 查看資料 */}
                         <Button variant="outline" size="sm" asChild>
-                          <Link href={`/customers/${customer.id}`}>
+                          <Link href={`/sales/customers/${customer.id}`}>
                             <ExternalLink className="w-4 h-4 mr-1" />
                             查看資料
                           </Link>

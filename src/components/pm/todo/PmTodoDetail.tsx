@@ -1,10 +1,11 @@
 "use client";
 
-import { CheckCircle2, Circle, Paperclip, User, X } from "lucide-react";
-// 假設你使用了 shadcn 的 Badge
+import { CheckCircle2, Circle, Paperclip, User, X, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge"; 
 
-// 定義從 tRPC 推導出來的型別 (可根據實際情況調整)
+import { toast } from "sonner"; // 你 package.json 有安裝 sonner
+import { trpc } from "../../../../trpc/client";
+
 type StaffTodo = {
   id: string;
   Title: string;
@@ -13,14 +14,34 @@ type StaffTodo = {
 };
 
 type PmTodoDetailProps = {
-  task: any; // 實務上請換成 RouterOutputs["todo"]["getToDoById_PM"]
+  task: any; 
   onClose: () => void;
+  onEdit: () => void; // 接收編輯事件
 };
 
-export default function PmTodoDetail({ task, onClose }: PmTodoDetailProps) {
+export default function PmTodoDetail({ task, onClose, onEdit }: PmTodoDetailProps) {
+  const utils = trpc.useUtils();
+
+  // 實作刪除 Mutation
+  const deleteMutation = trpc.todo.deleteToDo_PM.useMutation({
+    onSuccess: () => {
+      toast.success("任務已成功刪除");
+      utils.todo.getToDoAll_PM.invalidate(); // 更新左側列表
+      onClose(); // 刪除後關閉右側面板
+    },
+    onError: () => {
+      toast.error("刪除失敗");
+    }
+  });
+
+  const handleDelete = () => {
+    if (confirm("確定要刪除這筆任務嗎？相關的子任務也會受到影響。")) {
+      deleteMutation.mutate({ id: task.id });
+    }
+  };
+
   if (!task) return null;
 
-  // 計算員工子任務進度
   const staffTodos: StaffTodo[] = task.staffTodos || [];
   const completedStaffTodos = staffTodos.filter(t => t.completed).length;
   const progress = staffTodos.length > 0 
@@ -28,8 +49,8 @@ export default function PmTodoDetail({ task, onClose }: PmTodoDetailProps) {
     : 0;
 
   return (
-    <div className="flex flex-col h-full bg-white border-l border-[#edebe9] shadow-[-4px_0_12px_rgba(0,0,0,0.03)] animate-in slide-in-from-right-8 duration-300">
-      {/* 標頭區 (微軟風格喜歡大標題配緊湊的輔助資訊) */}
+    <div className="flex flex-col h-full bg-white shadow-[-4px_0_12px_rgba(0,0,0,0.03)] animate-in slide-in-from-right-8 duration-300">
+      {/* 標頭區 */}
       <div className="px-6 py-5 border-b border-[#edebe9] flex justify-between items-start">
         <div>
           <h2 className="text-[20px] font-semibold text-[#201f1e] leading-tight mb-2">
@@ -45,18 +66,38 @@ export default function PmTodoDetail({ task, onClose }: PmTodoDetailProps) {
             </span>
           </div>
         </div>
-        <button 
-          onClick={onClose}
-          className="p-1.5 text-[#605e5c] hover:bg-[#f3f2f1] rounded transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        
+        {/* 操作按鈕區：編輯、刪除、關閉 */}
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={onEdit}
+            className="p-1.5 text-[#605e5c] hover:text-[#005fb8] hover:bg-[#eff6fc] rounded transition-colors"
+            title="編輯任務"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={handleDelete}
+            disabled={deleteMutation.isPending}
+            className="p-1.5 text-[#605e5c] hover:text-[#a4262c] hover:bg-[#fde7e9] rounded transition-colors"
+            title="刪除任務"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+          <div className="w-[1px] h-4 bg-[#edebe9] mx-1"></div>
+          <button 
+            onClick={onClose}
+            className="p-1.5 text-[#605e5c] hover:bg-[#f3f2f1] rounded transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
-      {/* 內容區 */}
+      {/* 內容區 (保持不變) */}
       <div className="flex-1 overflow-y-auto p-6 space-y-8">
         
-        {/* 進度條 (Microsoft Planner 風格) */}
+        {/* 進度條 */}
         <div>
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-[14px] font-semibold text-[#201f1e]">員工子任務進度</h3>
@@ -99,15 +140,6 @@ export default function PmTodoDetail({ task, onClose }: PmTodoDetailProps) {
             </div>
           )}
         </div>
-
-        {/* 附件區塊 */}
-        <div>
-           <h3 className="text-[14px] font-semibold text-[#201f1e] mb-3 flex items-center gap-1">
-             <Paperclip className="w-4 h-4" /> 附件 ({task.attachments?.length || 0})
-           </h3>
-           {/* 這裡未來可擴充附件清單 */}
-        </div>
-
       </div>
     </div>
   );

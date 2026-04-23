@@ -34,6 +34,9 @@ model User {
   // 該員工產出的所有版本
   workVersions WorkVersion[] 
   projects    Project[] 
+  members     ProjectMember[]
+  ProjectComment    ProjectComment[]
+  Comments    Comment[]
 
   usages    DeviceUsage[]
 
@@ -268,7 +271,9 @@ model Project {
   quotation     Quotation? // 反向關聯報價單
 
   users       User[]
-
+  members     ProjectMember[]
+  ProjectComment    ProjectComment[]
+  comments         Comment[] // 如果 Comment 是直接掛在 Project 上才需要
   usages    DeviceUsage[]
 
   // ★ 关键关联：这个项目包含哪些具体的员工工作？
@@ -314,27 +319,40 @@ model ProjectPhase {
 }
 
 // 3. 工作版本 (員工產出的每一個 Version)
+// 在 WorkVersion model 中加入審核相關欄位
 model WorkVersion {
   id          String    @id @default(cuid())
-  versionName String    // 例如: "v1", "v3", "v5"
-  contentUrl  String?   // 檔案連結、Figma 連結、或程式碼 commit 網址
-  note        String?   // 員工對這個版本的備註
+  versionName String    
+  contentUrl  String?   
+  note        String?   
 
-  // 這是哪個員工做的？ (關聯到 User)
   userId      String
   user        User      @relation(fields: [userId], references: [id])
 
-  // 這個版本屬於哪個專案的資源池？
   projectId   String
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // ★ 這個版本被 PM 選中，放進哪個階段？(可以為空，代表只是員工的內部草稿，還沒被 PM 選用)
   phaseId     String?
   phase       ProjectPhase? @relation(fields: [phaseId], references: [id])
+
+  // ========== 新增：客戶審核相關欄位 ==========
+  reviewStatus   ReviewStatus   @default(PENDING)  // 審核狀態
+  reviewComment  String?                           // 客戶審核意見
+  reviewedAt     DateTime?                         // 審核時間
+  versionNumber  Int        @default(1)            // 版本號 (v1, v2, v3...)
+  previousVersionId String?                        // 上一版本的ID，用於追溯修改歷程
+  isLatest       Boolean    @default(true)         // 是否為最新版本
 
   createdAt   DateTime  @default(now())
 }
 
+// 新增審核狀態列舉
+enum ReviewStatus {
+  PENDING    // 待審核
+  APPROVED   // 通過
+  REJECTED   // 需修改
+  REVISING   // 修改中 (客戶要求修改，員工正在處理)
+}
 model WorkItem {
   id          String   @id @default(cuid())
   title       String   // 例如："设计首页 Banner"
@@ -369,18 +387,74 @@ equipmentLogs EquipmentLog[] // 任務中包含借用紀錄
   updatedAt   DateTime @updatedAt
 }
 
+model ProjectComment {
+  id        String   @id @default(cuid())
+  content   String
+
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  senderId  String
+  sender    User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  type      ProjectCommentType @default(TEXT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectMemberRole @default(STAFF)
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+enum ProjectMemberRole {
+  PM
+  SALES
+  STAFF
+  CLIENT
+  ADMIN
+}
+
+
+
+enum ProjectCommentType {
+  TEXT
+  SYSTEM
+  FILE
+}
+
 
 // ★ 新增：討論紀錄 Model (對話)
 model Comment {
-  id          String    @id @default(cuid())
-  content     String
-  
-  phaseId     String?
-  phase       ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: Cascade)
-  
+  id        String       @id @default(cuid())
+  content   String
+  phaseId   String?
+  phase     ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  senderId  String?
+  sender    User?         @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // 這裡可以加上留言的員工 userId 等等
-  createdAt   DateTime  @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([phaseId])
+  @@index([senderId])
 }
 
 // ★ 新增：交付成品 Model (檔案/連結)
@@ -837,6 +911,9 @@ model Quotation {
   projectId     String?  @unique
   project       Project? @relation(fields: [projectId], references: [id])
 
+  versions        QuotationVersion[]  // 版本歷史
+  currentVersionId String?             // 當前顯示的版本ID
+
   // 雙通道對話紀錄
   // 👇 這裡變成「兩個對話 data」 👇
   internalMessages InternalQuoteMessage[] // 只有 Admin/Sales 可以讀寫
@@ -1025,4 +1102,32 @@ model EquipmentUsageSchedule {
 
   @@index([equipmentLogId])
   @@index([usageStart])   // 方便按時間範圍查詢
+}
+
+// 報價單版本紀錄
+model QuotationVersion {
+  id              String    @id @default(cuid())
+  versionNumber   Int       
+  title           String    
+  status          QuoteStatus @default(NEGOTIATING)
+  baseCost        Decimal?  
+  agreedCost      Decimal?  
+  customerPrice   Decimal?  
+  pmBudget        Decimal?  
+  totalAmount     Decimal   @default(0)
+  notes           String?   
+  isLatest        Boolean   @default(false)
+  changeLog       String?   // 記錄這次改版修改了什麼
+  
+  quotationId     String
+  quotation       Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  
+  // 版本快照（JSON 格式儲存完整內容）
+  snapshot        Json      // 儲存完整的報價單內容
+  
+  createdAt       DateTime  @default(now())
+  createdBy       String?   // 誰建立的版本
+
+  @@unique([quotationId, versionNumber])
+  @@index([quotationId, isLatest])
 }

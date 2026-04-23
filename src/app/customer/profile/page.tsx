@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import CustomerProfileClient from "./CustomerProfileClient";
+import CustomerProfileClient from "./_components/CustomerProfileClient";
 import { auth } from "@/auth";
 import { db } from "@/app/lib/prisma";
 

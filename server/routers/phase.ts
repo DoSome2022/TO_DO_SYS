@@ -93,5 +93,24 @@ export const phaseRouter = router({
                     }
                 })
             return updatedPhase;
-        })
+        }),
+        assignVersionToPhase: publicProcedure
+        .input(z.object({
+            versionId: z.string(),
+            phaseId: z.string(),
+        }))
+        .mutation(async ({ input }) => {
+            const updatedVersion = await db.workVersion.update({
+                where: { id: input.versionId },
+                data: {
+                    phaseId: input.phaseId,           // 關鍵：關聯到階段
+                },
+                include: {
+                    user: true,
+                    phase: true
+                }
+            });
+
+            return updatedVersion;
+        }),
 })

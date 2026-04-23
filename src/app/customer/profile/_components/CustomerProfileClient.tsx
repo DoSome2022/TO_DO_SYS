@@ -1,14 +1,15 @@
 // src/components/CustomerProfileClient.tsx
 "use client";
 
-// ✨ 1. 引入 useEffect
 import { useState, useEffect } from "react"; 
 import { useRouter } from "next/navigation";
-
 import { toast } from "sonner"; 
-import { trpc } from "../../../../trpc/client";
+import { trpc } from "../../../../../trpc/client";
+import CustomerVersionReview from "@/components/review/CustomerVersionReview";
+import { Phase } from "@/types/review";
 
-// ... type 定義保持不變 ...
+
+// Type 定義
 type ProjectData = {
   id: string;
   title: string;
@@ -51,33 +52,35 @@ export default function CustomerProfileClient({
   projectMessages 
 }: Props) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"projects" | "chat">("projects");
+  const [activeTab, setActiveTab] = useState<"projects" | "chat" | "review">("projects");
+  const [selectedReviewProjectId, setSelectedReviewProjectId] = useState<string | null>(null);
   const [activeQuotationChatId, setActiveQuotationChatId] = useState<string | null>(null); 
   const [messageText, setMessageText] = useState("");
 
-  // ==========================================
-  // ✨ 2. 新增的自動輪詢邏輯 (Short Polling)
-  // ==========================================
+  // 獲取專案的階段版本資料 (只在 review tab 且選中專案時才查詢)
+  const { data: projectPhasesData, refetch: refetchPhases } = trpc.review.getCustomerProjectVersions.useQuery(
+    { 
+      projectId: selectedReviewProjectId!, 
+      customerId: customerId 
+    },
+    {
+      enabled: !!selectedReviewProjectId && activeTab === "review",
+      staleTime: 0,
+    }
+  );
+
+  // 自動輪詢邏輯
   useEffect(() => {
-    // 只有當使用者在「對話(chat)」頁籤時，才開啟定時器，節省效能
     if (activeTab !== "chat") return;
 
-    // 設定每 3 秒觸發一次
     const intervalId = setInterval(() => {
-      // router.refresh() 會重新執行 Server Component，
-      // 並在背景將新資料傳給這個 Client Component，不會導致畫面整頁重整或失去焦點。
       router.refresh();
     }, 3000);
 
-    // 清理函數：當元件卸載，或是切換離開 chat 頁籤時，關閉定時器
     return () => clearInterval(intervalId);
   }, [activeTab, router]);
-  // ==========================================
 
-  
-  // ==========================================
   // tRPC Mutations (發送訊息)
-  // ==========================================
   const { mutate: sendGeneral, isPending: isSendingGeneral } = trpc.message.sendGeneralMessage.useMutation({
     onSuccess: () => {
       setMessageText(""); 
@@ -123,6 +126,22 @@ export default function CustomerProfileClient({
     ? generalMessages 
     : projectMessages.filter(m => m.quotationId === activeQuotationChatId);
 
+  // 處理審核完成後的行為
+  const handleReviewComplete = () => {
+    refetchPhases();
+    toast.success("審核完成，感謝您的回饋！");
+  };
+
+  // 轉換 phases 資料，確保符合 Phase 類型
+  const normalizedPhases: Phase[] = (projectPhasesData?.phases || []).map(phase => ({
+    id: phase.id,
+    name: phase.name,
+    description: phase.description,
+    status: phase.status,
+    selectedVersions: phase.selectedVersions || [],
+    deliverables: phase.deliverables || [],
+  }));
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* 歡迎區塊 */}
@@ -136,7 +155,10 @@ export default function CustomerProfileClient({
       {/* 頁籤切換 */}
       <div className="flex space-x-4 mb-6 border-b">
         <button
-          onClick={() => setActiveTab("projects")}
+          onClick={() => {
+            setActiveTab("projects");
+            setSelectedReviewProjectId(null);
+          }}
           className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors ${
             activeTab === "projects" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
@@ -144,12 +166,31 @@ export default function CustomerProfileClient({
           我的專案與報價
         </button>
         <button
-          onClick={() => setActiveTab("chat")}
+          onClick={() => {
+            setActiveTab("chat");
+            setSelectedReviewProjectId(null);
+          }}
           className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors ${
             activeTab === "chat" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >
           訊息中心 (聯絡專員)
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("review");
+            setSelectedReviewProjectId(null);
+          }}
+          className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+            activeTab === "review" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          📋 版本審核
+          {projects.some(p => p.quotation) && (
+            <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">
+              {projects.filter(p => p.quotation).length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -170,7 +211,7 @@ export default function CustomerProfileClient({
                 <div className="text-gray-600 mb-4 space-y-2">
                   <p>報價單狀態：<span className="font-medium text-gray-900">{project.quotation.status}</span></p>
                   <p>報價金額：<span className="font-medium text-gray-900">
-                    NT$ {Number(project.quotation.customerPrice || 0).toLocaleString()}
+                    $ {Number(project.quotation.customerPrice || 0).toLocaleString()}
                   </span></p>
                 </div>
               ) : (
@@ -178,20 +219,37 @@ export default function CustomerProfileClient({
               )}
 
               <div className="flex gap-3 mt-6">
-                <button className="flex-1 bg-gray-50 text-gray-700 py-2 rounded-lg border hover:bg-gray-100 transition">
-                  查看詳細報價單
-                </button>
-                {/* 若有報價單，允許切換到該報價單專屬對話 */}
-                {project.quotation && (
                   <button 
-                    onClick={() => { 
-                      setActiveTab("chat"); 
-                      setActiveQuotationChatId(project.quotation!.id); 
+                    onClick={() => {
+                      if (project.quotation) {
+                        router.push(`/customer/profile/projects/${project.id}/quotation/${project.quotation.id}`);
+                      }
                     }}
-                    className="flex-1 bg-blue-50 text-blue-700 py-2 rounded-lg border border-blue-100 hover:bg-blue-100 transition"
+                    className="flex-1 bg-gray-50 text-gray-700 py-2 rounded-lg border hover:bg-gray-100 transition"
                   >
-                    討論此專案
+                    查看詳細報價單
                   </button>
+                {project.quotation && (
+                  <>
+                    <button 
+                      onClick={() => { 
+                        setActiveTab("chat"); 
+                        setActiveQuotationChatId(project.quotation!.id); 
+                      }}
+                      className="flex-1 bg-blue-50 text-blue-700 py-2 rounded-lg border border-blue-100 hover:bg-blue-100 transition"
+                    >
+                      討論此專案
+                    </button>
+                    <button 
+                      onClick={() => { 
+                        setActiveTab("review"); 
+                        setSelectedReviewProjectId(project.id); 
+                      }}
+                      className="flex-1 bg-purple-50 text-purple-700 py-2 rounded-lg border border-purple-100 hover:bg-purple-100 transition"
+                    >
+                      審核版本
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -206,7 +264,6 @@ export default function CustomerProfileClient({
           <div className="w-full md:w-1/3 bg-gray-50 border-r border-gray-200 flex flex-col">
             <div className="p-4 font-bold text-gray-700 border-b bg-gray-100">對話列表</div>
             <div className="overflow-y-auto flex-1 p-2 space-y-1">
-              {/* 一般對話 */}
               <button
                 onClick={() => setActiveQuotationChatId(null)}
                 className={`w-full text-left px-4 py-3 rounded-lg text-sm transition-colors ${
@@ -220,7 +277,6 @@ export default function CustomerProfileClient({
                 專案專屬對話
               </div>
               
-              {/* 專案對話列表 (基於有報價單的專案) */}
               {projects.filter(p => p.quotation).map((project) => (
                 <button
                   key={project.id}
@@ -243,7 +299,6 @@ export default function CustomerProfileClient({
                 : `📁 專案：${projects.find(p => p.quotation?.id === activeQuotationChatId)?.title}`}
             </div>
             
-            {/* 對話顯示區域 */}
             <div className="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col-reverse">
               <div className="space-y-4 flex flex-col">
                 {currentMessages.length > 0 ? (
@@ -264,7 +319,6 @@ export default function CustomerProfileClient({
               </div>
             </div>
 
-            {/* 輸入框 */}
             <div className="p-4 border-t bg-white flex gap-2">
               <input 
                 type="text" 
@@ -289,6 +343,97 @@ export default function CustomerProfileClient({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 內容區：版本審核 */}
+      {activeTab === "review" && (
+        <div className="space-y-6">
+          {/* 尚未選擇專案時，顯示專案列表供選擇 */}
+          {!selectedReviewProjectId ? (
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">選擇要審核的專案</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {projects.filter(p => p.quotation).length === 0 ? (
+                  <div className="col-span-2 text-center py-12 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">目前沒有任何需要審核的專案</p>
+                    <p className="text-sm text-gray-400 mt-2">當您的專案有新的版本交付時，會在這裡顯示</p>
+                  </div>
+                ) : (
+                  projects.filter(p => p.quotation).map((project) => (
+                    <button
+                      key={project.id}
+                      onClick={() => setSelectedReviewProjectId(project.id)}
+                      className="p-6 bg-white border border-gray-200 rounded-xl text-left hover:border-purple-300 hover:shadow-md transition group"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="font-bold text-lg text-gray-900 group-hover:text-purple-700 transition">
+                          {project.title}
+                        </h3>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          project.status === "COMPLETED" 
+                            ? "bg-green-100 text-green-800" 
+                            : "bg-blue-100 text-blue-800"
+                        }`}>
+                          {project.status === "COMPLETED" ? "已完成" : "進行中"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-2">
+                        報價單狀態：{project.quotation?.status}
+                      </p>
+                      <p className="text-sm text-purple-600 mt-3 group-hover:underline">
+                        點擊審核交付版本 →
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              {/* 返回按鈕 */}
+              <div className="flex items-center justify-between mb-6">
+                <button
+                  onClick={() => {
+                    setSelectedReviewProjectId(null);
+                    refetchPhases();
+                  }}
+                  className="text-purple-600 hover:text-purple-700 flex items-center gap-2 font-medium"
+                >
+                  ← 返回專案列表
+                </button>
+                <div className="text-sm text-gray-500">
+                  專案 ID: {selectedReviewProjectId}
+                </div>
+              </div>
+
+              {/* 顯示當前審核的專案標題 */}
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {projects.find(p => p.id === selectedReviewProjectId)?.title}
+                </h2>
+                <p className="text-gray-500 mt-1">請審核以下各階段的交付版本</p>
+              </div>
+
+              {/* 載入狀態 */}
+              {!projectPhasesData && (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                  <p className="text-gray-500 mt-2">載入中...</p>
+                </div>
+              )}
+
+              {/* 審核元件 - 使用轉換後的資料 */}
+              {projectPhasesData && (
+                <CustomerVersionReview
+                  projectId={selectedReviewProjectId}
+                  customerId={customerId}
+                  phases={normalizedPhases}
+                  onReviewComplete={handleReviewComplete}
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -13,7 +13,7 @@ export default function StaffPage() {
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6 text-gray-800">員工管理系統</h1>
 
-      <Link href="/staff/createstaff" className="inline-block mb-4 px-4 py-2 bg-slate-900 text-white rounded hover:bg-slate-800">
+      <Link href="/admin/staff/createstaff" className="inline-block mb-4 px-4 py-2 bg-slate-900 text-white rounded hover:bg-slate-800">
           建立員工
       </Link>
 

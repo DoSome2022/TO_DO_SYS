@@ -3,11 +3,11 @@
 
 import WorkItemsViewer from "@/components/WorkItemsViewer";
 import PmDashboard from "./PmDashboard";
+import SalesDashboard_index from "./SalesDashboard";
+import AdminDashboard from "./AdminDashboard";
+
 import { useDynamicFeatures, useHasPermission, useUserProfile } from "../../../hooks/useUserProfile";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import SalesDashboard_index from "./SalesDashboard";
-// ✅ 1. 新增導入 AdminDashboard
-import AdminDashboard from "./AdminDashboard";
 
 export default function DynamicDashboardClient() {
   const { data: profile, isLoading } = useUserProfile();
@@ -22,11 +22,14 @@ export default function DynamicDashboardClient() {
     return <div className="p-8 text-red-500">載入失敗，請重新登入</div>;
   }
 
-  const positionName = (profile.position || "").toLowerCase();
+  // === 推薦修改：改用權限判斷，而非 position 字串比對 ===
+  const isAdmin = hasPermission("ADMIN_ACCESS") || hasPermission("DASHBOARD_ADMIN"); 
+  const isPM   = hasPermission("PROJECT_MANAGE") || hasPermission("PM_DASHBOARD");
+  const isSales = hasPermission("QUOTATION_CREATE") || hasPermission("SALES_DASHBOARD");
 
-  const isPM = positionName.includes("pm") || positionName.includes("專案經理");
-  const isSales = positionName.includes("sales") || positionName.includes("業務");
-  const isAdmin = positionName.includes("admin") || positionName.includes("管理員");
+  // 如果您仍想保留 position 作為後備方案，可以這樣寫：
+  // const positionName = (profile.position || "").toLowerCase();
+  // const isAdmin = hasPermission("ADMIN_ACCESS") || positionName.includes("admin");
 
   return (
     <div className="container mx-auto p-6 space-y-10">
@@ -38,14 +41,14 @@ export default function DynamicDashboardClient() {
         </p>
       </div>
 
-      {/* 職位專屬 Dashboard 區域 (這裡完美體現分離法) */}
+      {/* 職位專屬 Dashboard 區域 — 使用權限控制 */}
       <div className="space-y-6">
-        {isAdmin && <AdminDashboard />}          {/* ✅ 2. 新增 Admin 的專屬視圖 */}
+        {isAdmin && <AdminDashboard />}
         {isPM && <PmDashboard />}
         {isSales && <SalesDashboard_index />}
       </div>
 
-      {/* 通用工作項目區域 (不管甚麼職位，只要有指派工作就會顯示) */}
+      {/* 通用工作項目區域 */}
       <div>
         <h2 className="text-2xl font-semibold mb-6">我的工作項目</h2>
         <WorkItemsViewer 
@@ -85,7 +88,7 @@ export default function DynamicDashboardClient() {
   );
 }
 
-// 動態功能卡片元件保持不變
+// DynamicFeatureCard 元件保持不變
 function DynamicFeatureCard({ feature }: { feature: any }) {
   const config = typeof feature.config === "string" 
     ? JSON.parse(feature.config) 

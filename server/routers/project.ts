@@ -365,4 +365,52 @@ export const ProjectRouter = router({
       });
     }),
 
+getMyProjects: protectedProcedure.query(async ({ ctx }) => {
+  const userId = ctx.session.user.id;
+
+  const projects = await db.project.findMany({
+    where: {
+      OR: [
+        { salesId: userId }, // 身分是 Sales
+        { pmId: userId },    // 身分是 PM
+        // 👇 加上這行：身分是一般成員 (透過 assignUserToProject 加入的)
+        { users: { some: { id: userId } } },
+        // 👇 加上這行：在該專案中有被分配到任務 (WorkItem) 的員工
+        { workItems: { some: { staffId: userId } } } 
+      ],
+    },
+    include: {
+      sales: { select: { id: true, name: true, position: true } },
+      pm: { select: { id: true, name: true, position: true } },
+      customer: { select: { id: true, name: true } },
+      workItems: { select: { isCompleted: true } },
+      phases: { select: { id: true, status: true, order: true } },
+      _count: {
+        select: {
+          workItems: true,
+          phases: true,
+        },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return projects.map((p) => {
+    const total = p.workItems.length;
+    const completed = p.workItems.filter((w) => w.isCompleted).length;
+    const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+    return {
+      ...p,
+      progress,
+      totalTasks: total,
+      completedTasks: completed,
+    };
+  });
+}),
+
+
+
+
+
 });

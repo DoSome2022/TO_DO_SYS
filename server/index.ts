@@ -8,11 +8,16 @@ import { DeliverableRouter } from "./routers/deliverable";
 import { dynamicFeatureRouter } from "./routers/dynamicFeature";
 import { equipmentRouter } from "./routers/equipment";
 import { messageRouter } from "./routers/message";
+import { OssRouter } from "./routers/oss";
 import { phaseRouter } from "./routers/phase";
 import { ProjectRouter } from "./routers/project";
+import { projectCommentRouter } from "./routers/projectComment";
 import { quotationRouter } from "./routers/quotation";
+import { reviewRouter } from "./routers/review";
+
 import { salesCustomerRouter } from "./routers/salesCustomer";
 import { serviceRouter } from "./routers/service";
+import { staffRouter } from "./routers/staff";
 import { staffPermissionRouter } from "./routers/staffpermission";
 import { staffPositionRouter } from "./routers/staffposition";
 import { todoRouter } from "./routers/todo";
@@ -37,6 +42,7 @@ export const appRouter = router({
     phase: phaseRouter,
     WorkVersion: WorkVersionRouter,
     Comment: CommentRouter,
+    projectComment: projectCommentRouter,
     Deliverable: DeliverableRouter,
     attachment: attachmentRouter,
     equipment: equipmentRouter,
@@ -46,6 +52,9 @@ export const appRouter = router({
     companyProfile:companyProfileRouter,
     adminUser: adminUserRouter,
     message: messageRouter,
+    oss: OssRouter,
+    review: reviewRouter,
+    staff: staffRouter,
 });
 
 export type AppRouter = typeof appRouter;

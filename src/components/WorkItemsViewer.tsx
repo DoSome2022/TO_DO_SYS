@@ -198,6 +198,8 @@ export default function WorkItemsViewer({
     );
   }
 
+console.log("data:", workItems, "-- End --");
+
   const renderListView = () => {
     if (!workItems.length) {
       return (
@@ -421,15 +423,22 @@ export default function WorkItemsViewer({
                           {hasUsageSchedules && (
                             <CollapsibleContent className="px-3 pb-3">
                               <div className="space-y-2 pt-2">
-                                {log.usageSchedules.map((schedule: any) => (
-                                  <div
-                                    key={schedule.id}
-                                    className="text-xs border rounded p-2 bg-muted/20"
-                                  >
-                                    {format(new Date(schedule.startTime), "yyyy/MM/dd HH:mm")} -{" "}
-                                    {format(new Date(schedule.endTime), "yyyy/MM/dd HH:mm")}
-                                  </div>
-                                ))}
+                                {log.usageSchedules.map((schedule: any) => {
+                                  const start = schedule.startTime ? new Date(schedule.startTime) : null;
+                                  const end = schedule.endTime ? new Date(schedule.endTime) : null;
+                                  
+                                  const isValidStart = start && !isNaN(start.getTime());
+                                  const isValidEnd = end && !isNaN(end.getTime());
+                                  return (
+                                    <div
+                                      key={schedule.id}
+                                      className="text-xs border rounded p-2 bg-muted/20"
+                                    >
+                                      {isValidStart ? format(start, "yyyy/MM/dd HH:mm") : "未定"} -{" "}
+                                      {isValidEnd ? format(end, "yyyy/MM/dd HH:mm") : "未定"}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </CollapsibleContent>
                           )}
