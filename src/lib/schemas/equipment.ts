@@ -39,6 +39,7 @@ export const checkoutEquipmentSchema = z.object({
   dueAt: z.date().optional(),
   borrowDurationDays: z.number().int().positive().optional(),
   notes: z.string().optional(),
+  staffTodoId: z.string().optional(), // 新增：關聯到 Staff_TODO 的 ID
   usageSchedules: z.array(usageScheduleSchema).optional(), // 這裡保持 optional
    workItemId: z.string().optional()
 });

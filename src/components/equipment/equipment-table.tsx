@@ -1,3 +1,5 @@
+// src/components/equipment/equipment-table.tsx
+
 "use client";
 
 import { api } from "@/utils/api";

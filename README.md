@@ -63,6 +63,20 @@ pm 的項目內 的有關東西 測試完
 staff 睇自己客人的資料
 
 
+27/4/2026
+
+暫時(應該完成了客人的部份)
+現在開始處理sales
+
+
+28/4/2026
+
+sales 完成　（差看流程）
+ＰＭ 完成
+現在入staff 的　del bug　（完成）
+
+明天admin
+
 bug:
     admin:
     todolist 的crud 功能（個人）
@@ -79,26 +93,36 @@ bug:
 
 
     sales 要做：
-     每個獨立項目中的對話
-     單據 發送給客人顯示
+     每個獨立項目中的對話　做了
+     單據 發送給客人顯示(應該是不用的)(客人版面是存在 所以不用發送)
      客人資料(要加入修改資料)
-       - 該客人的報價單
-       - 發送訊息 不要顯示
+       - 該客人的報價單(客人版面是存在 所以不用發送)
+       - 發送訊息 不要顯示(改了　是普通對話，以及項目對話　所以是要存在)
      送todo list (create)
     
+
+
+sales/ChatList?projectId 不要顯是 model phase, 要顯示 model workversion ()??
+
+Chat 系列　應該不用（之後再看流程）
+
 
      pm:
     把pm 的todo list 數據 轉去 PM dashboard 我的工作清單
      PM dashboard 導入錯誤 用了admin dashboard（done）
-     todo 要做
-     要做一個跟sales 的對話框（每項目)
+     todo 要做 (done)
+     要做一個跟sales 的對話框（每項目) (done)
 
      staff:
 
-     staff dashboard 導入錯誤 用了admin dashboard
+     staff dashboard 導入錯誤 用了admin dashboard(完成)
 
-     外借其他公司裝備不顯示
+     外借其他公司裝備不顯示 （完成）
 
      在不同版本中，當pm在中認同了該員工的作品後，在不同版本中的作品不見了（這可以接受，但我想留在pool 中) (done)
 
-     可delete todo list 工作
+     可delete todo list 工作 (done)
+
+
+
+     三系都給了新的todo curd function

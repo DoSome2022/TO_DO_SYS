@@ -16,7 +16,7 @@ import {
   Clock,
 } from "lucide-react";
 
-import CustomerChatList from "./CustomerChatList";
+import CustomerChatList from "./CustomerChatList_no";
 import { useCustomerInfo } from "../../../hooks/useSalesCustomer";
 
 export default function CustomerChat() {

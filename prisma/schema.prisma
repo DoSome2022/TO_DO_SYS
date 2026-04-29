@@ -37,6 +37,7 @@ model User {
   members     ProjectMember[]
   ProjectComment    ProjectComment[]
   Comments    Comment[]
+  projectMessages ProjectMessage[]  // ← 新增這行，與其他 message 放一起
 
   usages    DeviceUsage[]
 
@@ -65,6 +66,8 @@ model User {
   // 發送的報價單外部訊息
   externalQuoteMessages ExternalQuoteMessage[]
 
+  versionMessages  VersionMessage[]  // 新增這行
+  deliverableMessages  DeliverableMessage[] @relation("UserDeliverableMessages")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -98,6 +101,8 @@ model Customer {
 
   CollaborationRequest CollaborationRequest[]
 
+  versionMessages  VersionMessage[]  // 新增這行
+  deliverableMessages  DeliverableMessage[] @relation("CustomerDeliverableMessages")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -224,7 +229,7 @@ model Staff_TODO {
   staff_id String?
   staff User? @relation(fields: [staff_id], references: [id])
   attachments  Attachment[] // 讓 Todo 也能有附件
-
+  equipmentLogs EquipmentLog[] // 必須有此行
 }
 
 model Project {
@@ -281,6 +286,7 @@ model Project {
 
   //(讓專案知道自己用了哪些設備)
   equipmentLogs EquipmentLog[]
+  projectMessages ProjectMessage[]
 
   referencedByRequests CollaborationRequest[] @relation("ReferenceProject")
 }
@@ -342,6 +348,9 @@ model WorkVersion {
   versionNumber  Int        @default(1)            // 版本號 (v1, v2, v3...)
   previousVersionId String?                        // 上一版本的ID，用於追溯修改歷程
   isLatest       Boolean    @default(true)         // 是否為最新版本
+
+// ========== 新增：對話關聯 ==========
+  messages       VersionMessage[]  // 這個版本的所有對話訊息
 
   createdAt   DateTime  @default(now())
 }
@@ -467,8 +476,41 @@ model Deliverable {
   
   phaseId     String
   phase       ProjectPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+// 新增：對話關聯
+  messages    DeliverableMessage[]
+
+    // ✅ 新增審核相關欄位
+  reviewStatus   String   @default("PENDING")  // PENDING, APPROVED, REJECTED
+  reviewComment  String?
+  reviewedAt     DateTime?
+  customerId     String?   // 記錄是哪個客戶審核的
 
   createdAt   DateTime  @default(now())
+}
+
+
+// 新增：交付成品對話訊息模型
+model DeliverableMessage {
+  id          String   @id @default(cuid())
+  deliverableId String
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  content     String
+  senderType  String   // 'customer', 'sales', 'admin'
+  senderId    String
+  
+  userId      String?
+  user        User?    @relation("UserDeliverableMessages", fields: [userId], references: [id])
+  
+  customerId  String?
+  customer    Customer? @relation("CustomerDeliverableMessages", fields: [customerId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([deliverableId])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([customerId])
 }
 
 // 2. 器材本體 (每一筆資料代表"一台"具體的機器)
@@ -723,6 +765,8 @@ model EquipmentLog {
   workItemId String?
   workItem   WorkItem? @relation(fields: [workItemId], references: [id])
 
+  staffTodoId   String?      // 新增
+  staffTodo     Staff_TODO?  @relation(fields: [staffTodoId], references: [id])
 
   // --- 7. 歸還狀況：還回來時是好是壞？ ---
   condition           EquipmentCondition? // 歸還時的狀態 (完好/損壞)
@@ -1130,4 +1174,44 @@ model QuotationVersion {
 
   @@unique([quotationId, versionNumber])
   @@index([quotationId, isLatest])
+}
+
+
+model VersionMessage {
+  id          String   @id @default(cuid())
+  versionId   String
+  version     WorkVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  content     String
+  senderType  String   // 'customer', 'sales', 'admin'
+  senderId    String   // 可以是 User.id 或 Customer.id
+  
+  // 直接關聯到 User（當 senderType 不是 customer 時）
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  // 直接關聯到 Customer（當 senderType 是 customer 時）
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([versionId])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([customerId])
+}
+
+// ===== 1. ProjectMessage Model (全新) =====
+model ProjectMessage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  content   String
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([projectId])
+  @@index([createdAt])
 }

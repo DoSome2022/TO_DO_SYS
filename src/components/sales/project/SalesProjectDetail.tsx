@@ -1,8 +1,11 @@
+// src/components/SalesProjectDetail.tsx
+
 "use client";
 
 // ✅ 1. 這裡加上了 Building2
-import { X, ExternalLink, FileText, Briefcase, ChevronRight, Building2 } from "lucide-react";
+import { X, ExternalLink, FileText, Briefcase,  Building2, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
 
 type SalesProjectDetailProps = {
   project: any;
@@ -12,6 +15,8 @@ type SalesProjectDetailProps = {
 
 
 export default function SalesProjectDetail({ project, onClose }: SalesProjectDetailProps) {
+  
+   const router = useRouter();  // ← 加入這行
   if (!project) return null;
 
   console.log("-- Data :  --", project ,"-- End --")
@@ -32,9 +37,19 @@ export default function SalesProjectDetail({ project, onClose }: SalesProjectDet
             {project.title}
           </h2>
         </div>
-        <button onClick={onClose} className="p-1.5 text-slate-400 hover:bg-slate-200 rounded transition-colors">
-          <X className="w-5 h-5" />
-        </button>
+          {/* 前往對話 + close 按鈕 */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push(`/sales/projects/${project.id}/chat`)}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors shadow-sm"
+            >
+              <MessageSquare className="w-4 h-4" />
+              前往對話
+            </button>
+            <button onClick={onClose} className="p-1.5 text-slate-400 hover:bg-slate-200 rounded transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
       </div>
 
       {/* 內容區 */}

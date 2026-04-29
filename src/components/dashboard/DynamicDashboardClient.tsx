@@ -1,7 +1,10 @@
-// components/dashboard/DynamicDashboardClient.tsx
+// components/dashboard/DynamicDashboardClient.tsx (修改版)
 "use client";
 
 import WorkItemsViewer from "@/components/WorkItemsViewer";
+// import TodoListViewer from "@/components/TodoListViewer";    // ← 🆕 引入
+import StaffTodoManager from "@/components/StaffTodoManager";
+
 import PmDashboard from "./PmDashboard";
 import SalesDashboard_index from "./SalesDashboard";
 import AdminDashboard from "./AdminDashboard";
@@ -22,14 +25,12 @@ export default function DynamicDashboardClient() {
     return <div className="p-8 text-red-500">載入失敗，請重新登入</div>;
   }
 
-  // === 推薦修改：改用權限判斷，而非 position 字串比對 ===
   const isAdmin = hasPermission("ADMIN_ACCESS") || hasPermission("DASHBOARD_ADMIN"); 
   const isPM   = hasPermission("PROJECT_MANAGE") || hasPermission("PM_DASHBOARD");
   const isSales = hasPermission("QUOTATION_CREATE") || hasPermission("SALES_DASHBOARD");
 
-  // 如果您仍想保留 position 作為後備方案，可以這樣寫：
-  // const positionName = (profile.position || "").toLowerCase();
-  // const isAdmin = hasPermission("ADMIN_ACCESS") || positionName.includes("admin");
+  // ✨ 判斷員工身分：有 PROJECT_MANAGE 或 WORKITEM_VIEW 都算
+  const isStaffOrPM = isPM || hasPermission("WORKITEM_VIEW_OWN") || hasPermission("WORKITEM_VIEW_ALL");
 
   return (
     <div className="container mx-auto p-6 space-y-10">
@@ -41,20 +42,56 @@ export default function DynamicDashboardClient() {
         </p>
       </div>
 
-      {/* 職位專屬 Dashboard 區域 — 使用權限控制 */}
+      {/* 職位專屬 Dashboard 區域 */}
       <div className="space-y-6">
         {isAdmin && <AdminDashboard />}
         {isPM && <PmDashboard />}
         {isSales && <SalesDashboard_index />}
       </div>
 
-      {/* 通用工作項目區域 */}
+      {/* ============================================ */}
+      {/* ✨ 角色感知的「我的工作項目」區域              */}
+      {/* ============================================ */}
       <div>
         <h2 className="text-2xl font-semibold mb-6">我的工作項目</h2>
-        <WorkItemsViewer 
-          initialStaffId={profile.id} 
-          isPmMode={isPM} 
-        />
+
+        <div className="space-y-6">
+          {/* 
+            情況 A：Staff / PM 
+            → 顯示「專案任務 (WorkItems)」+「個人待辦 (Staff_TODO)」
+          */}
+          {isStaffOrPM && (
+            <>
+              {/* 專案任務（只有 Staff/PM 才有） */}
+              <WorkItemsViewer 
+                initialStaffId={profile.id} 
+                isPmMode={isPM} 
+              />
+
+              {/* 個人待辦清單 */}
+              {/* <TodoListViewer mode="staff" /> */}
+              <StaffTodoManager />
+            </>
+          )}
+
+          {/* 
+            情況 B：純 Sales（沒有專案任務權限）
+            → 只顯示「個人待辦 (Staff_TODO)」
+          */}
+          {isSales && !isStaffOrPM && (
+            // <TodoListViewer mode="staff" />
+            <StaffTodoManager />
+          )}
+
+          {/* 
+            情況 C：什麼權限都沒有
+            → 至少也顯示待辦
+          */}
+          {!isStaffOrPM && !isSales && !isAdmin && (
+            // <TodoListViewer mode="staff" />
+            <StaffTodoManager />
+          )}
+        </div>
       </div>
 
       {/* DynamicFeature 動態渲染區塊 */}
@@ -88,7 +125,7 @@ export default function DynamicDashboardClient() {
   );
 }
 
-// DynamicFeatureCard 元件保持不變
+// DynamicFeatureCard 保持不變
 function DynamicFeatureCard({ feature }: { feature: any }) {
   const config = typeof feature.config === "string" 
     ? JSON.parse(feature.config) 

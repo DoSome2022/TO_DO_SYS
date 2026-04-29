@@ -1,147 +1,225 @@
+// components/review/CustomerVersionReview.tsx
 
-
-// src/components/CustomerVersionReview.tsx
 "use client";
 
 import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { VersionChatArea } from "./VersionChatArea";
+import { MessageCircle, ExternalLink, CheckCircle, XCircle, FileText } from "lucide-react";
+import { trpc } from "../../../trpc/client";
 
-
-type Deliverable = {
+// ✅ 修改：加入 reviewStatus, reviewComment, note 屬性
+interface Deliverable {
   id: string;
   name: string;
   url: string;
   fileKey: string | null;
   fileSize: number | null;
   createdAt: Date;
-};
+  reviewStatus?: string;      // ✅ 新增：審核狀態
+  reviewComment?: string | null;  // ✅ 新增：審核意見
+  note?: string | null;       // ✅ 新增：備註
+}
 
-type Phase = {
+interface Phase {
   id: string;
   name: string;
   description: string | null;
   status: string;
   deliverables: Deliverable[];
-};
+}
 
-type Props = {
+interface CustomerVersionReviewProps {
   projectId: string;
+  projectTitle: string;
   customerId: string;
   phases: Phase[];
-  onReviewComplete?: () => void;
-};
+  onReviewComplete: () => void;
+}
 
-export default function CustomerVersionReview({ 
-
+export default function CustomerVersionReview({
+  projectId,
+  projectTitle,
+  customerId,
   phases,
-  onReviewComplete 
-}: Props) {
-  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set(phases.map(p => p.id)));
-
-  const togglePhase = (phaseId: string) => {
-    const newExpanded = new Set(expandedPhases);
-    if (newExpanded.has(phaseId)) {
-      newExpanded.delete(phaseId);
-    } else {
-      newExpanded.add(phaseId);
-    }
-    setExpandedPhases(newExpanded);
+  onReviewComplete,
+}: CustomerVersionReviewProps) {
+  const [selectedDeliverable, setSelectedDeliverable] = useState<{
+    id: string;
+    name: string;
+    phaseName: string;
+  } | null>(null);
+  
+  const { mutate: approveDeliverable, isPending: isApproving } = trpc.message.approveDeliverable.useMutation({
+    onSuccess: () => {
+      onReviewComplete();
+    },
+  });
+  
+  const { mutate: rejectDeliverable, isPending: isRejecting } = trpc.message.rejectDeliverable.useMutation({
+    onSuccess: () => {
+      onReviewComplete();
+    },
+  });
+  
+  const handleApprove = (deliverableId: string) => {
+    approveDeliverable({ deliverableId, customerId, projectId });
   };
-
+  
+  const handleReject = (deliverableId: string, comment: string) => {
+    rejectDeliverable({ deliverableId, customerId, projectId, comment });
+  };
+  
+  const handleOpenChat = (deliverable: Deliverable, phaseName: string) => {
+    setSelectedDeliverable({
+      id: deliverable.id,
+      name: deliverable.name,
+      phaseName: phaseName,
+    });
+  };
+  
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "APPROVED":
+        return <Badge className="bg-green-100 text-green-800">✓ 客戶已確認</Badge>;
+      case "REJECTED":
+        return <Badge className="bg-red-100 text-red-800">✗ 需修改</Badge>;
+      default:
+        return <Badge className="bg-yellow-100 text-yellow-800">⏳ 待客戶確認</Badge>;
+    }
+  };
+  
+  // 如果選中了交付成品，顯示對話區
+  if (selectedDeliverable) {
+    return (
+      <VersionChatArea
+        deliverableId={selectedDeliverable.id}
+        versionName={selectedDeliverable.name}
+        projectTitle={projectTitle}
+        phaseName={selectedDeliverable.phaseName}
+        customerId={customerId}
+        onClose={() => setSelectedDeliverable(null)}
+      />
+    );
+  }
+  
+  // 過濾出有交付成品的階段
+  const phasesWithDeliverables = phases.filter(phase => phase.deliverables && phase.deliverables.length > 0);
+  
+  if (phasesWithDeliverables.length === 0) {
+    return (
+      <div className="text-center py-12 bg-gray-50 rounded-lg">
+        <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">目前沒有任何交付成品</p>
+        <p className="text-sm text-gray-400 mt-2">當 PM 上傳完成品後，您可以在這裡審核</p>
+      </div>
+    );
+  }
+  
   return (
     <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2">📋 交付成品</h3>
-        <p className="text-sm text-blue-700">
-          您可以在此查看各階段 PM 提供的正式交付成品。
-        </p>
-      </div>
-
-      {/* 階段列表 */}
-      <div className="space-y-4">
-        {phases.map((phase) => (
-          <div key={phase.id} className="border border-gray-200 rounded-lg overflow-hidden">
-            {/* 階段標題 */}
-            <button
-              onClick={() => togglePhase(phase.id)}
-              className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">
-                  {expandedPhases.has(phase.id) ? "▼" : "▶"}
-                </span>
-                <div className="text-left">
-                  <h4 className="font-semibold text-gray-900">{phase.name}</h4>
-                  {phase.description && (
-                    <p className="text-sm text-gray-500">{phase.description}</p>
-                  )}
-                </div>
-              </div>
-              <span className={`px-3 py-1 text-xs rounded-full ${
-                phase.status === "COMPLETED" 
-                  ? "bg-green-100 text-green-800" 
-                  : "bg-yellow-100 text-yellow-800"
-              }`}>
-                {phase.status === "COMPLETED" ? "已完成" : "進行中"}
-              </span>
-            </button>
-
-            {/* 階段內的交付成品列表 */}
-            {expandedPhases.has(phase.id) && (
-              <div className="p-4 space-y-3">
-                {phase.deliverables.length === 0 ? (
-                  <p className="text-gray-400 text-center py-4">暫無交付成品</p>
-                ) : (
-                  <div className="space-y-2">
-                    {phase.deliverables.map((deliverable) => (
-                      <div
-                        key={deliverable.id}
-                        className="border border-green-100 rounded-lg p-4 bg-green-50/30 hover:bg-green-50 transition"
+      {phasesWithDeliverables.map((phase) => (
+        <Card key={phase.id}>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>{phase.name}</span>
+              {phase.status === "COMPLETED" && (
+                <Badge className="bg-green-100 text-green-800">階段已完成</Badge>
+              )}
+            </CardTitle>
+            {phase.description && (
+              <p className="text-sm text-muted-foreground">{phase.description}</p>
+            )}
+          </CardHeader>
+          
+          <CardContent className="space-y-4">
+            {phase.deliverables.map((deliverable) => (
+              <div
+                key={deliverable.id}
+                className="border rounded-lg p-4 space-y-3"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-medium flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-blue-500" />
+                      {deliverable.name}
+                      {getStatusBadge(deliverable.reviewStatus || "PENDING")}
+                    </h4>
+                    {deliverable.fileSize && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        大小：{(deliverable.fileSize / 1024).toFixed(1)} KB
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    {deliverable.url && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(deliverable.url, '_blank')}
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900">
-                              {deliverable.name}
-                            </span>
-                            <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
-                              正式交付
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-400">
-                            提供於 {new Date(deliverable.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between mt-3">
-                          <span className="text-xs text-gray-400">
-                            類型：{deliverable.url?.startsWith('http') ? '外部連結' : '檔案'}
-                          </span>
-                          {deliverable.url && (
-                            <a
-                              href={deliverable.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-green-600 hover:underline flex items-center gap-1"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              查看成品 →
-                            </a>
-                          )}
-                        </div>
-
-                        {deliverable.fileSize && (
-                          <div className="mt-2 text-xs text-gray-400">
-                            檔案大小：{(deliverable.fileSize / 1024 / 1024).toFixed(2)} MB
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        預覽
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-blue-600"
+                      onClick={() => handleOpenChat(deliverable, phase.name)}
+                    >
+                      <MessageCircle className="w-4 h-4 mr-1" />
+                      對話與審核
+                    </Button>
+                  </div>
+                </div>
+                
+                {deliverable.note && (
+                  <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                    {deliverable.note}
+                  </p>
+                )}
+                
+                {deliverable.reviewComment && deliverable.reviewStatus === "REJECTED" && (
+                  <div className="text-sm bg-red-50 p-2 rounded text-red-700">
+                    <span className="font-medium">修改意見：</span>
+                    {deliverable.reviewComment}
+                  </div>
+                )}
+                
+                {/* 審核按鈕（只有待審核狀態才顯示） */}
+                {(!deliverable.reviewStatus || deliverable.reviewStatus === "PENDING") && (
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => handleApprove(deliverable.id)}
+                      disabled={isApproving || isRejecting}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      確認通過
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        const comment = prompt("請說明需要修改的地方：");
+                        if (comment) handleReject(deliverable.id, comment);
+                      }}
+                      disabled={isApproving || isRejecting}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      要求修改
+                    </Button>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+// src/components/equipment/equipment-history.tsx
+
 "use client";
 
 import React, { useMemo } from "react";

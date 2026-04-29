@@ -103,6 +103,7 @@ export function EquipmentCheckoutDialog({
         equipmentId: newEq.id,
         projectId: projectId || undefined,
         borrowedById: userId,
+        staffTodoId: taskId,  // ✅ 加上這行
         notes: `為任務[${workItemTitle}]租用/自備。備註：${form.getValues("notes") || ""}`,
       });
     },
@@ -139,7 +140,8 @@ const onSubmit = async (values: FormValues) => {
         borrowDurationDays: values.borrowDurationDays,
         usageSchedules: values.usageSchedules,
         notes: `任務: ${workItemTitle}\n備註: ${values.notes || ""}`,
-        workItemId: taskId // ✅ 確保 onSubmit 的時候把 taskId 傳給後端
+        // workItemId: taskId, // ✅ 確保 onSubmit 的時候把 taskId 傳給後端
+        staffTodoId: taskId,  // ✅ 加上這行，寫入 staffTodoId
       });
     } else {
       const numericCost = values.externalCost ? Number(values.externalCost) : 0;

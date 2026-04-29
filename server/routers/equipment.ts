@@ -132,34 +132,35 @@ getById: protectedProcedure
         });
         const usageSchedules = input.usageSchedules ?? [];
         // 建立借用記錄 + 同時建立多筆使用時間表（nested create）
-        const newLog = await tx.equipmentLog.create({
-          data: {
-            equipmentId: input.equipmentId,
-            projectId: input.projectId,
-            borrowedById: input.borrowedById,
-            issuedById: input.issuedById ?? ctx.session.user.id,
-            externalRecipient: input.externalRecipient,
-            dueAt: input.dueAt,                    // 大概什麼時候還
-            notes: input.notes,
-            borrowedAt: new Date(),
-            borrowDurationDays: input.borrowDurationDays,
-            workItemId: input.workItemId, // ✅★★★ 在這裡把任務 ID 寫入資料庫 ★★★
+            const newLog = await tx.equipmentLog.create({
+              data: {
+                equipmentId: input.equipmentId,
+                projectId: input.projectId,
+                borrowedById: input.borrowedById,
+                issuedById: input.issuedById ?? ctx.session.user.id,
+                externalRecipient: input.externalRecipient,
+                dueAt: input.dueAt,
+                notes: input.notes,
+                borrowedAt: new Date(),
+                borrowDurationDays: input.borrowDurationDays,
+                workItemId: input.workItemId,       // 保留（如果其他功能需要）
+                staffTodoId: input.staffTodoId,
+                  
+                usageSchedules: {
+                  create: usageSchedules.map((schedule) => ({
+                    usageStart: schedule.usageStart,
+                    usageEnd: schedule.usageEnd,
+                    note: schedule.note,
+                  })),
+                },
+              },
+              include: {
+                usageSchedules: true,
+                borrowedBy: true,
+                project: true,
+              },
+            });
 
-            // ★★★ 關鍵：nested create 多筆使用時間
-            usageSchedules: {
-              create: usageSchedules.map((schedule) => ({
-                usageStart: schedule.usageStart,
-                usageEnd: schedule.usageEnd,
-                note: schedule.note,
-              })),
-            },
-          },
-          include: {
-            usageSchedules: true,   // 回傳建立好的使用時間表
-            borrowedBy: true,
-            project: true,
-          },
-        });
 
         return newLog;
       });

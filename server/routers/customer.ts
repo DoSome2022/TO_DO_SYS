@@ -1,4 +1,3 @@
-
 import { db } from "@/app/lib/prisma";
 import { publicProcedure, router, 
     protectedProcedure 
@@ -16,16 +15,18 @@ export const customerRouter = router({
       });
       return customer;
     }),
+    
   getAllCustomer: publicProcedure.query(async () => {
     const customers = await db.customer.findMany();
     return customers;
   }),
-createCustomer: publicProcedure
+  
+  createCustomer: publicProcedure
     .input(
       z.object({
         name: z.string().optional(),
         email: z.string().email().optional(),
-        password: z.string(), // 新增：接收前端傳來的密碼
+        password: z.string(),
         phone: z.string().optional(),
         customname: z.string().optional(),
         contactname: z.string().optional(),
@@ -36,10 +37,7 @@ createCustomer: publicProcedure
       })
     )
     .mutation(async ({ input }) => {
-      // 使用前端傳來的密碼進行加密，而不是硬編碼 "123456"
       const hashedPassword = await bcrypt.hash(input.password, 10);
-
-      // 把 password 從 input 中分離出來，剩下的存入資料庫
       const { password, ...restData } = input;
 
       const customer = await db.customer.create({
@@ -50,7 +48,8 @@ createCustomer: publicProcedure
       });
       return customer;
     }),
-    updateCustomer: publicProcedure
+    
+  updateCustomer: publicProcedure
     .input(
       z.object({
         id: z.string(),
@@ -70,9 +69,50 @@ createCustomer: publicProcedure
       });
       return customer;
     }),
- // 客戶提交合作申請表
-    // 客戶提交合作申請表
- submitApplication: publicProcedure
+     // ==========================================
+  // ✅ 新增：獲取客戶資訊（包含最新的報價單）
+  // ==========================================
+  getCustomerInfo: publicProcedure
+    .input(z.object({ customerId: z.string() }))
+    .query(async ({ input }) => {
+      const customer = await db.customer.findUnique({
+        where: { id: input.customerId },
+        select: {
+          id: true,
+          name: true,
+          companyname: true,
+          email: true,
+          phone: true,
+          contactname: true,
+          contactphone: true,
+          companyemail: true,
+          // 獲取最新的報價單（按建立時間排序，取第一筆）
+          quotations: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              createdAt: true,
+              customerPrice: true,
+            }
+          },
+          // 也可以取得成交的專案數量
+          _count: {
+            select: {
+              Project: {
+                where: { status: "COMPLETED" } // 根據你的專案狀態調整
+              }
+            }
+          }
+        }
+      });
+      
+      return customer;
+    }),
+  // 客戶提交合作申請表
+  submitApplication: publicProcedure
     .input(
       z.object({
         companyName: z.string().min(1, "請填寫公司名稱"),
@@ -86,25 +126,24 @@ createCustomer: publicProcedure
       const userId = session?.user?.id;
       const userRole = (session?.user as any)?.role;
       const customerId = (userId && userRole === "customer") ? userId : null;
-      // ==========================================
-      // 1. 自動派單邏輯：找出最閒的 Sales
-      // ==========================================
+      
       const salesReps = await db.user.findMany({
         where: { role: "SALES", isActive: true },
         include: {
           _count: {
-            select: { SalesCustomerConversation: true } // 以負責的對話數量作為負載指標
+            select: { SalesCustomerConversation: true }
           }
         }
       });
+      
       if (salesReps.length === 0) {
         throw new Error("目前系統無可用的業務人員。");
       }
-      // 找出對話數最少的 Sales
+      
       const leastLoadedSales = salesReps.reduce((prev, curr) => 
         (curr._count.SalesCustomerConversation < prev._count.SalesCustomerConversation) ? curr : prev
       );
-      // 2. 建立申請單
+      
       const newRequest = await db.collaborationRequest.create({
         data: {
           companyName: input.companyName,
@@ -112,13 +151,9 @@ createCustomer: publicProcedure
           requirements: input.requirements,
           referenceProjectId: input.referenceProjectId,
           customerId: customerId,
-          // 如果 CollaborationRequest Schema 裡有 salesId，請取消下行註解：
-          // salesId: leastLoadedSales.id, 
         },
       });
-      // ==========================================
-      // 3. 建立資訊孤島的橋樑：主動為 Sales 與客戶開通對話室
-      // ==========================================
+      
       if (customerId) {
         await db.salesCustomerConversation.create({
           data: {
@@ -132,4 +167,75 @@ createCustomer: publicProcedure
       return { success: true, data: newRequest };
     }),
 
+  // ==========================================
+  // 新增：根據 customerId 獲取所有相關的專案及其版本
+  // ==========================================
+  // server/routers/customer.ts
+getCustomerProjectsWithVersions: publicProcedure
+  .input(z.object({ 
+    customerId: z.string(),
+  }))
+  .query(async ({ input }) => {
+    const { customerId } = input;
+    
+    const projects = await db.project.findMany({
+      where: { 
+        customerId: customerId,
+      },
+      include: {
+        phases: {
+          include: {
+            selectedVersions: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                  }
+                }
+              }
+            },
+            deliverables: {  // ✅ 新增：加入 deliverables
+              select: {
+                id: true,
+                name: true,
+                url: true,
+                fileKey: true,
+                fileSize: true,
+                createdAt: true,
+              }
+            }
+          },
+          orderBy: { order: 'asc' }
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            companyname: true,
+          }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    const quotations = await db.quotation.findMany({
+      where: { 
+        customerId: customerId,
+        status: "WON",
+        projectId: null
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        createdAt: true,
+      }
+    });
+
+    return {
+      projects,
+      quotations,
+    };
+  }),
 });

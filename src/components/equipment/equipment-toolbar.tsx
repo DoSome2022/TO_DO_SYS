@@ -1,3 +1,5 @@
+// src/components/equipment/equipment-toolbar.tsx
+
 "use client";
 
 import { useForm } from "react-hook-form";

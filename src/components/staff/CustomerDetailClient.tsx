@@ -1,9 +1,8 @@
-// src/components/staff/CustomerDetailClient.tsx
+// src/components/staff/CustomerDetailClient.tsx (修改版)
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-
 import { trpc } from "../../../trpc/client";
 import { 
   ArrowLeft, 
@@ -16,10 +15,13 @@ import {
   ChevronRight,
   Calendar,
   DollarSign,
-  CheckCircle,
   Clock,
   AlertCircle
 } from "lucide-react";
+
+// ✨ 引入分離後的兩個子元件
+import CustomerInfoView from "./CustomerInfoView";
+import CustomerInfoEdit from "./CustomerInfoEdit";
 
 type CustomerDetailClientProps = {
   customerId: string;
@@ -32,6 +34,8 @@ export default function CustomerDetailClient({
 }: CustomerDetailClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"info" | "projects" | "quotations" | "messages">("info");
+  // ✨ 新增編輯模式狀態
+  const [isEditing, setIsEditing] = useState(false);
 
   // 獲取客戶詳細資料
   const { data: customer, isLoading, refetch } = trpc.staff.getCustomerDetail.useQuery({
@@ -72,7 +76,31 @@ export default function CustomerDetailClient({
   };
 
   const handleSendMessage = () => {
-    router.push(`/staff/messages?customerId=${customerId}`);
+    router.push(`/sales/messages?customerId=${customerId}`);
+  };
+
+  // ✨ 編輯成功回調：重新獲取資料 + 切回檢視模式
+  const handleEditSuccess = useCallback(() => {
+    setIsEditing(false);
+    refetch(); // 重新載入最新資料
+  }, [refetch]);
+
+  // ✨ 切換到編輯模式前先確認
+  const handleStartEdit = useCallback(() => {
+    setIsEditing(true);
+  }, []);
+
+  // ✨ 取消編輯
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+  }, []);
+
+  // 切換頁籤時自動退出編輯模式
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    if (tab !== "info") {
+      setIsEditing(false);
+    }
   };
 
   if (isLoading) {
@@ -125,7 +153,9 @@ export default function CustomerDetailClient({
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8 text-white">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-2xl font-bold mb-2">{customer.name || customer.customname || "未命名客戶"}</h1>
+              <h1 className="text-2xl font-bold mb-2">
+                {customer.name || customer.customname || "未命名客戶"}
+              </h1>
               <div className="flex items-center gap-4 text-sm text-blue-100">
                 <span>客戶編號：{customer.id.slice(0, 8).toUpperCase()}</span>
                 <span>|</span>
@@ -193,7 +223,7 @@ export default function CustomerDetailClient({
       {/* 頁籤切換 */}
       <div className="flex space-x-2 mb-6 border-b">
         <button
-          onClick={() => setActiveTab("info")}
+          onClick={() => handleTabChange("info")}
           className={`px-4 py-2 font-medium text-sm transition-colors ${
             activeTab === "info"
               ? "border-b-2 border-blue-600 text-blue-600"
@@ -203,7 +233,7 @@ export default function CustomerDetailClient({
           基本資料
         </button>
         <button
-          onClick={() => setActiveTab("projects")}
+          onClick={() => handleTabChange("projects")}
           className={`px-4 py-2 font-medium text-sm transition-colors flex items-center gap-2 ${
             activeTab === "projects"
               ? "border-b-2 border-blue-600 text-blue-600"
@@ -219,7 +249,7 @@ export default function CustomerDetailClient({
           )}
         </button>
         <button
-          onClick={() => setActiveTab("quotations")}
+          onClick={() => handleTabChange("quotations")}
           className={`px-4 py-2 font-medium text-sm transition-colors flex items-center gap-2 ${
             activeTab === "quotations"
               ? "border-b-2 border-blue-600 text-blue-600"
@@ -236,65 +266,32 @@ export default function CustomerDetailClient({
         </button>
         <button
           onClick={handleSendMessage}
-          className={`px-4 py-2 font-medium text-sm transition-colors flex items-center gap-2 ${
-            activeTab === "messages"
-              ? "border-b-2 border-blue-600 text-blue-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
+          className="px-4 py-2 font-medium text-sm transition-colors flex items-center gap-2 text-gray-500 hover:text-gray-700"
         >
           <MessageCircle className="w-4 h-4" />
           發送訊息
         </button>
       </div>
 
-      {/* 內容區域 */}
+      {/* 內容區域 — ✨ 這裡是分離法的核心切換 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* 基本資料頁籤 */}
+        {/* 基本資料頁籤：根據 isEditing 切換檢視/編輯 */}
         {activeTab === "info" && (
-          <div className="p-6">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">客戶詳細資訊</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-xs text-gray-400 mb-1">客戶名稱</p>
-                    <p className="text-gray-900">{customer.name || "未設定"}</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-xs text-gray-400 mb-1">顯示名稱</p>
-                    <p className="text-gray-900">{customer.customname || "未設定"}</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-xs text-gray-400 mb-1">聯絡人名稱</p>
-                    <p className="text-gray-900">{customer.contactname || "未設定"}</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-xs text-gray-400 mb-1">聯絡人電話</p>
-                    <p className="text-gray-900">{customer.contactphone || "未設定"}</p>
-                  </div>
-                </div>
-              </div>
-
-              {customer.companyname && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">公司資訊</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-xs text-gray-400 mb-1">公司名稱</p>
-                    <p className="text-gray-900">{customer.companyname}</p>
-                    {customer.companyemail && (
-                      <>
-                        <p className="text-xs text-gray-400 mt-3 mb-1">公司信箱</p>
-                        <p className="text-gray-900">{customer.companyemail}</p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          isEditing ? (
+            <CustomerInfoEdit
+              customer={customer}
+              onCancel={handleCancelEdit}
+              onSuccess={handleEditSuccess}
+            />
+          ) : (
+            <CustomerInfoView
+              customer={customer}
+              onEdit={handleStartEdit}
+            />
+          )
         )}
 
-        {/* 專案列表頁籤 */}
+        {/* 專案列表頁籤（保持不變） */}
         {activeTab === "projects" && (
           <div className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">專案列表</h3>
@@ -317,6 +314,7 @@ export default function CustomerDetailClient({
                     className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
                     onClick={() => handleViewProject(project.id)}
                   >
+                    {/* ... 保持你原有的 project card 內容 ... */}
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-semibold text-gray-900">{project.title}</h4>
                       <span className={`px-2 py-1 text-xs rounded-full ${
@@ -359,7 +357,7 @@ export default function CustomerDetailClient({
           </div>
         )}
 
-        {/* 報價單列表頁籤 */}
+        {/* 報價單列表頁籤（保持不變） */}
         {activeTab === "quotations" && (
           <div className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">報價單列表</h3>
@@ -382,6 +380,7 @@ export default function CustomerDetailClient({
                     className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
                     onClick={() => handleViewQuotation(quotation.id, quotation.projectId || undefined)}
                   >
+                    {/* ... 保持你原有的 quotation card 內容 ... */}
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-semibold text-gray-900">{quotation.title}</h4>
                       <span className={`px-2 py-1 text-xs rounded-full ${
@@ -399,7 +398,7 @@ export default function CustomerDetailClient({
                       <div>
                         <p className="text-sm text-gray-500">報價金額</p>
                         <p className="text-lg font-bold text-blue-600">
-                          NT$ {quotation.totalAmount.toLocaleString()}
+                          $ {quotation.totalAmount.toLocaleString()}
                         </p>
                       </div>
                       <div className="text-right">

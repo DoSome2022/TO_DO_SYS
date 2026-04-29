@@ -427,13 +427,33 @@ getSalesProjects: protectedProcedure
         phases: {
           select: {
             id: true,
+            name: true,        // ← 加上階段名稱
             status: true,
+            order: true,       // ← 排序用
+            selectedVersions: {  // ← 加上階段的版本
+              select: {
+                id: true,
+                versionName: true,
+                contentUrl: true,
+                note: true,
+                createdAt: true,
+                userId: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
           },
+          orderBy: { order: "asc" }, // ← 按順序排列
         },
         workItems: {
           where: { isCompleted: false },
           select: { id: true },
         },
+
       },
       orderBy: { updatedAt: "desc" },
       take: 10,
@@ -448,11 +468,17 @@ getSalesProjects: protectedProcedure
       const progress = totalPhases > 0 ? (completedPhases / totalPhases) * 100 : 0;
       const pendingWorkItems = project.workItems.length;
 
+
+      // ✅ 轉換版本的 totalAmount（Decimal → number）
+
+
+
       return {
         ...project,
         customerPrice: project.customerPrice ? Number(project.customerPrice) : null,
         progress,
         pendingWorkItems,
+
       };
     });
   }),
@@ -477,9 +503,11 @@ getSalesCustomers: protectedProcedure
           where: { salesId: userId },
           select: {
             id: true,
+            title: true,           // ← 🔴 加上這行
             status: true,
             customerPrice: true,
             createdAt: true,
+            projectId: true,       // ← 🔴 加上這行
           },
           orderBy: { createdAt: "desc" },
           take: 5,

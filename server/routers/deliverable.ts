@@ -87,4 +87,58 @@ export const DeliverableRouter = router({
                 }
             });
         }),
+
+        // 獲取交付成品的對話記錄
+  getDeliverableMessages: publicProcedure
+    .input(z.object({ deliverableId: z.string() }))
+    .query(async ({ input }) => {
+      const messages = await db.deliverableMessage.findMany({  // 注意：大寫 D
+        where: { deliverableId: input.deliverableId },
+        include: {
+          user: {
+            select: { id: true, name: true, role: true }
+          },
+          customer: {
+            select: { id: true, name: true, companyname: true }
+          }
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+      return messages;
+    }),
+
+  // 發送交付成品的對話
+  sendDeliverableMessage: publicProcedure
+    .input(z.object({
+      deliverableId: z.string(),
+      content: z.string().min(1),
+      senderType: z.enum(['customer', 'sales', 'admin']),
+      senderId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const isCustomer = input.senderType === 'customer';
+      
+      const message = await db.deliverableMessage.create({  // 注意：大寫 D
+        data: {
+          deliverableId: input.deliverableId,
+          content: input.content,
+          senderType: input.senderType,
+          senderId: input.senderId,
+          ...(isCustomer 
+            ? { customerId: input.senderId }
+            : { userId: input.senderId }
+          ),
+        },
+        include: {
+          user: {
+            select: { id: true, name: true, role: true }
+          },
+          customer: {
+            select: { id: true, name: true, companyname: true }
+          }
+        }
+      });
+      
+      return message;
+    }),
 });

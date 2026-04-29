@@ -27,7 +27,7 @@ export default function ApplicationForm() {
     onSuccess: () => {
       alert("申請提交成功！我們將盡快與您聯繫。");
       form.reset(); // 清空表單
-      // router.push("/customer/profile"); // 可選：成功後導向會員中心
+      router.push("/customer/profile"); // 可選：成功後導向會員中心
     },
     onError: (error) => {
       // 顯示後端拋出的錯誤 (例如: "請填寫公司名稱" 或 "目前系統無可用的業務人員")

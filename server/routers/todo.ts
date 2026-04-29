@@ -82,17 +82,37 @@ export const todoRouter = router({
     }),
 
   // ====================== Staff TODO ======================
-  getMyTasks: protectedProcedure.query(async ({ ctx }) => {
-    return await ctx.db.staff_TODO.findMany({
-      where: { staff_id: ctx.user.id },   // 只能看到自己的任務
+  // getMyTasks: protectedProcedure.query(async ({ ctx }) => {
+  //   return await ctx.db.staff_TODO.findMany({
+  //     where: { staff_id: ctx.user.id },   // 只能看到自己的任務
+  //     include: {
+  //       PM_TODO: true,
+  //       attachments: true,
+  //       staff: true,
+  //     },
+  //     orderBy: { targetDate: "asc" },
+  //   });
+  // }),
+
+  // 在你的 todo router 中
+getMyTasks: protectedProcedure
+  .query(async ({ ctx }) => {
+    return ctx.db.staff_TODO.findMany({
+      where: { staff_id: ctx.session.user.id },
       include: {
         PM_TODO: true,
-        attachments: true,
-        staff: true,
+        // ✅ 新增這一段
+        equipmentLogs: {
+        include: {
+          equipment: true, // 或者 include ExternalRental 取決於結構
+        },
+          orderBy: { borrowedAt: 'desc' }
+        }
       },
-      orderBy: { targetDate: "asc" },
+      orderBy: { targetDate: 'asc' }
     });
   }),
+
 
   getToDoAll_Staff: protectedProcedure
     // .use(hasPermission("STAFF_TODO_VIEW"))
@@ -143,6 +163,7 @@ export const todoRouter = router({
     .input(z.object({
       id: z.string(),
       title: z.string().min(1, "標題必填"),
+      completed: z.boolean().optional(),
       targetDate: z.string().optional().nullable(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -168,5 +189,6 @@ export const todoRouter = router({
         },
       });
     }),
+
 
 });

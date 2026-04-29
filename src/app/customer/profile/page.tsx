@@ -32,6 +32,9 @@ export default async function CustomerProfilePage() {
     }
   });
 
+  // console.log("Data :", rawProjectsData , "-- End --"); // 🔍 檢查原始資料格式
+
+
   // ✨ 處理 Decimal 型別轉換
   const projectsData = rawProjectsData.map((project) => ({
     id: project.id,

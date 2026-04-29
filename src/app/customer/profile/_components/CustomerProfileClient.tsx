@@ -1,4 +1,5 @@
 // src/components/CustomerProfileClient.tsx
+
 "use client";
 
 import { useState, useEffect } from "react"; 
@@ -6,8 +7,27 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner"; 
 import { trpc } from "../../../../../trpc/client";
 import CustomerVersionReview from "@/components/review/CustomerVersionReview";
-import { Phase } from "@/types/review";
 
+// ✅ 直接在本地定義類型，確保與實際資料結構一致
+interface Deliverable {
+  id: string;
+  name: string;
+  url: string;
+  fileKey: string | null;
+  fileSize: number | null;
+  createdAt: Date;
+  reviewStatus?: string;
+  reviewComment?: string | null;
+  note?: string | null;
+}
+
+interface Phase {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  deliverables: Deliverable[];
+}
 
 // Type 定義
 type ProjectData = {
@@ -126,20 +146,27 @@ export default function CustomerProfileClient({
     ? generalMessages 
     : projectMessages.filter(m => m.quotationId === activeQuotationChatId);
 
-  // 處理審核完成後的行為
   const handleReviewComplete = () => {
     refetchPhases();
     toast.success("審核完成，感謝您的回饋！");
   };
 
-  // 轉換 phases 資料，確保符合 Phase 類型
-  const normalizedPhases: Phase[] = (projectPhasesData?.phases || []).map(phase => ({
+  const normalizedPhases: Phase[] = (projectPhasesData?.phases || []).map((phase: any) => ({
     id: phase.id,
     name: phase.name,
     description: phase.description,
     status: phase.status,
-    selectedVersions: phase.selectedVersions || [],
-    deliverables: phase.deliverables || [],
+    deliverables: (phase.deliverables || []).map((d: any) => ({
+      id: d.id,
+      name: d.name,
+      url: d.url,
+      fileKey: d.fileKey ?? null,
+      fileSize: d.fileSize ?? null,
+      createdAt: new Date(d.createdAt),
+      reviewStatus: d.reviewStatus || "PENDING",
+      reviewComment: d.reviewComment ?? null,
+      note: d.note ?? null,
+    })),
   }));
 
   return (
@@ -219,16 +246,16 @@ export default function CustomerProfileClient({
               )}
 
               <div className="flex gap-3 mt-6">
-                  <button 
-                    onClick={() => {
-                      if (project.quotation) {
-                        router.push(`/customer/profile/projects/${project.id}/quotation/${project.quotation.id}`);
-                      }
-                    }}
-                    className="flex-1 bg-gray-50 text-gray-700 py-2 rounded-lg border hover:bg-gray-100 transition"
-                  >
-                    查看詳細報價單
-                  </button>
+                <button 
+                  onClick={() => {
+                    if (project.quotation) {
+                      router.push(`/customer/profile/projects/${project.id}/quotation/${project.quotation.id}`);
+                    }
+                  }}
+                  className="flex-1 bg-gray-50 text-gray-700 py-2 rounded-lg border hover:bg-gray-100 transition"
+                >
+                  查看詳細報價單
+                </button>
                 {project.quotation && (
                   <>
                     <button 
@@ -257,13 +284,14 @@ export default function CustomerProfileClient({
         </div>
       )}
 
-      {/* 內容區：訊息中心 */}
+      {/* 內容區：訊息中心 - 只保留一般客服和專案報價單對話 */}
       {activeTab === "chat" && (
         <div className="flex flex-col md:flex-row bg-white border border-gray-200 rounded-xl overflow-hidden h-[600px] shadow-sm">
           {/* 左側列表 */}
           <div className="w-full md:w-1/3 bg-gray-50 border-r border-gray-200 flex flex-col">
             <div className="p-4 font-bold text-gray-700 border-b bg-gray-100">對話列表</div>
             <div className="overflow-y-auto flex-1 p-2 space-y-1">
+              {/* 一般客服 */}
               <button
                 onClick={() => setActiveQuotationChatId(null)}
                 className={`w-full text-left px-4 py-3 rounded-lg text-sm transition-colors ${
@@ -273,8 +301,9 @@ export default function CustomerProfileClient({
                 💬 一般客服諮詢
               </button>
               
+              {/* 專案專屬對話標題 */}
               <div className="px-4 pt-4 pb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                專案專屬對話
+                專案報價單對話
               </div>
               
               {projects.filter(p => p.quotation).map((project) => (
@@ -349,7 +378,6 @@ export default function CustomerProfileClient({
       {/* 內容區：版本審核 */}
       {activeTab === "review" && (
         <div className="space-y-6">
-          {/* 尚未選擇專案時，顯示專案列表供選擇 */}
           {!selectedReviewProjectId ? (
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">選擇要審核的專案</h2>
@@ -391,7 +419,6 @@ export default function CustomerProfileClient({
             </div>
           ) : (
             <div>
-              {/* 返回按鈕 */}
               <div className="flex items-center justify-between mb-6">
                 <button
                   onClick={() => {
@@ -407,7 +434,6 @@ export default function CustomerProfileClient({
                 </div>
               </div>
 
-              {/* 顯示當前審核的專案標題 */}
               <div className="mb-4">
                 <h2 className="text-2xl font-bold text-gray-900">
                   {projects.find(p => p.id === selectedReviewProjectId)?.title}
@@ -415,7 +441,6 @@ export default function CustomerProfileClient({
                 <p className="text-gray-500 mt-1">請審核以下各階段的交付版本</p>
               </div>
 
-              {/* 載入狀態 */}
               {!projectPhasesData && (
                 <div className="text-center py-12">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -423,10 +448,10 @@ export default function CustomerProfileClient({
                 </div>
               )}
 
-              {/* 審核元件 - 使用轉換後的資料 */}
               {projectPhasesData && (
                 <CustomerVersionReview
                   projectId={selectedReviewProjectId}
+                  projectTitle={projects.find(p => p.id === selectedReviewProjectId)?.title || ""}
                   customerId={customerId}
                   phases={normalizedPhases}
                   onReviewComplete={handleReviewComplete}

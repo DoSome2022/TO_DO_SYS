@@ -27,13 +27,17 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+// ✅ 更新 Quotation 介面，加入缺少的屬性
 interface Quotation {
   id: string;
+  title: string;           // 新增：報價單標題
   status: string;
   customerPrice: number | null;
   createdAt: Date;
+  projectId: string | null; // 新增：關聯的專案 ID（可能為 null）
 }
 
+// ✅ 更新 Customer 介面，確保 quotations 包含完整資訊
 interface Customer {
   id: string;
   name: string | null;
@@ -41,12 +45,13 @@ interface Customer {
   contactname: string | null;
   contactphone: string | null;
   companyemail: string | null;
-  quotations: Quotation[];
+  quotations: Quotation[];  // 現在 Quotation 包含 title 和 projectId
   _count: {
     quotations: number;
     Project: number;
   };
 }
+
 
 interface SalesCustomersListProps {
   customers: Customer[];
@@ -239,9 +244,9 @@ export default function SalesCustomersList({ customers }: SalesCustomersListProp
                       <div className="flex flex-wrap gap-2 pt-2">
                         {/* 1. 與客戶對話按鈕 (主要按鈕色調，引導業務溝通) */}
                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" asChild>
-                          <Link href={`/sales/customers/${customer.id}`}>
+                          <Link href={`/sales/ChatList/?projectId=${customer.quotations[0]?.projectId || ''}&customerId=${customer.id}`}>
                             <MessageCircle className="w-4 h-4 mr-1" />
-                            與客戶對話
+                            與客戶對話 ({customer.quotations[0]?.title || '最新報價'})
                           </Link>
                         </Button>
                         

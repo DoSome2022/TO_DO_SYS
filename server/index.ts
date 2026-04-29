@@ -12,6 +12,7 @@ import { OssRouter } from "./routers/oss";
 import { phaseRouter } from "./routers/phase";
 import { ProjectRouter } from "./routers/project";
 import { projectCommentRouter } from "./routers/projectComment";
+import { projectMessageRouter } from "./routers/projectMessage";
 import { quotationRouter } from "./routers/quotation";
 import { reviewRouter } from "./routers/review";
 
@@ -55,6 +56,7 @@ export const appRouter = router({
     oss: OssRouter,
     review: reviewRouter,
     staff: staffRouter,
+    projectMessage: projectMessageRouter,
 });
 
 export type AppRouter = typeof appRouter;

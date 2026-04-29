@@ -1,21 +1,19 @@
+// src/hooks/useSalesCustomer.ts
+
 "use client";
 
 import { trpc } from "../trpc/client";
 
-
-
-// ✅ 導出 Conversation 型別
 export type Conversation = {
   id: string;
   content: string;
   createdAt: Date;
-  senderType: string; // 👈 必須加上這一行！用來判斷是誰發的
+  senderType: string;
   salesId?: string;
   customerId?: string;
   isRead?: boolean;
 };
 
-// ✅ 導出 CustomerWithStats 型別
 export type CustomerWithStats = {
   id: string;
   name: string | null;
@@ -35,7 +33,7 @@ export type CustomerWithStats = {
 };
 
 // ==========================================
-// Query Hooks
+// Query Hooks (支援 initialData)
 // ==========================================
 
 export function useCustomersWithStats() {
@@ -48,20 +46,31 @@ export function useConversations(customerId: string, limit: number = 50) {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       enabled: !!customerId,
-      // refetchInterval: 3000, 
+      // 輪詢間隔：5秒檢查新訊息
+      refetchInterval: 5000,
+      // 視窗聚焦時重新獲取
+      refetchOnWindowFocus: true,
     }
   );
 }
 
-export function useCustomerInfo(customerId: string) {
+// ✅ 更新：支援 initialData
+export function useCustomerInfo(customerId: string, options?: { initialData?: any }) {
   return trpc.salesCustomer.getCustomerInfo.useQuery(
     { customerId },
-    { enabled: !!customerId }
+    { 
+      enabled: !!customerId,
+      initialData: options?.initialData,
+      // 5分鐘內不重新請求
+      staleTime: 5 * 60 * 1000,
+    }
   );
 }
 
 export function useUnreadCount() {
-  return trpc.salesCustomer.getUnreadCount.useQuery();
+  return trpc.salesCustomer.getUnreadCount.useQuery(undefined, {
+    refetchInterval: 30000, // 30秒檢查一次未讀
+  });
 }
 
 // ==========================================
@@ -72,7 +81,29 @@ export function useSendMessage() {
   const utils = trpc.useUtils();
   
   return trpc.salesCustomer.sendMessage.useMutation({
-    onSuccess: (_, variables) => {
+    onSuccess: (newMessage, variables) => {
+      // 更新對話列表快取
+      utils.salesCustomer.getConversations.setInfiniteData(
+        { customerId: variables.customerId, limit: 50 },
+        (oldData) => {
+          if (!oldData) return oldData;
+          
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page, index) => {
+              if (index === 0) {
+                return {
+                  ...page,
+                  conversations: [newMessage, ...page.conversations],
+                };
+              }
+              return page;
+            }),
+          };
+        }
+      );
+      
+      // 使相關查詢失效
       utils.salesCustomer.getConversations.invalidate({
         customerId: variables.customerId,
       });
