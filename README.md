@@ -126,3 +126,11 @@ Chat 系列　應該不用（之後再看流程）
 
 
      三系都給了新的todo curd function
+
+
+
+
+
+30/4/2026
+
+開發應完成（明天做run build test 以及　deploy test)

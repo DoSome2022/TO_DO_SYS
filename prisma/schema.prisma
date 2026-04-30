@@ -66,8 +66,12 @@ model User {
   // 發送的報價單外部訊息
   externalQuoteMessages ExternalQuoteMessage[]
 
+  ProjectSalesMessage ProjectSalesMessage[]
+
   versionMessages  VersionMessage[]  // 新增這行
   deliverableMessages  DeliverableMessage[] @relation("UserDeliverableMessages")
+
+  AdminDashboard AdminDashboard[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -287,6 +291,7 @@ model Project {
   //(讓專案知道自己用了哪些設備)
   equipmentLogs EquipmentLog[]
   projectMessages ProjectMessage[]
+  salesChannel ProjectSalesChannel?
 
   referencedByRequests CollaborationRequest[] @relation("ReferenceProject")
 }
@@ -1214,4 +1219,98 @@ model ProjectMessage {
   updatedAt DateTime @updatedAt
   @@index([projectId])
   @@index([createdAt])
+}
+
+
+// ==========================================
+// Admin 自定義 Dashboard 系統
+// ==========================================
+// ① Admin 的儀表板配置（一個 Admin 可以有多個儀表板頁籤）
+model AdminDashboard {
+  id        String   @id @default(cuid())
+  name      String   @default("我的管理儀表板")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // 版面配置 (Grid layout JSON)
+  // 例如: { "columns": 4, "gap": 4 }
+  layout    Json     @default("{\"columns\":4}")
+  
+  // 這個儀表板包含哪些 Widget
+  widgets   DashboardWidget[]
+  
+  isDefault Boolean  @default(false) // 是否為預設儀表板
+  order     Int      @default(0)     // 排序
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, name])
+  @@index([userId])
+}
+// ② 儀表板上的每個小元件
+model DashboardWidget {
+  id           String   @id @default(cuid())
+  dashboardId  String
+  dashboard    AdminDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  
+  // 指向哪個預定義的 Metric
+  metricKey    String   // 例如: "total_users", "active_projects"
+  layout      Json
+  
+  // 自訂設定
+  customTitle  String?  // 自訂顯示名稱（留空則用 Metric 預設名稱）
+  position     Int      @default(0) // 排序位置
+  width        Int      @default(1) // 佔幾欄 (1-4)
+  height       Int      @default(1) // 高度單位
+  
+  // 篩選條件 (JSON)
+  // 例如: { "status": "IN_PROGRESS", "dateRange": "THIS_MONTH" }
+  filterConfig Json?
+  
+  // 圖表設定
+  // 例如: { "chartType": "BAR", "showLegend": true }
+  chartConfig  Json?
+  
+  isVisible    Boolean  @default(true) // 是否隱藏（不用刪除）
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([dashboardId])
+}
+
+
+// ★ 新增：Admin-Sales 專案內部對話頻道
+// 一個專案只有一條，自動在專案建立+指派Sales時創建
+model ProjectSalesChannel {
+  id        String   @id @default(cuid())
+  projectId String   @unique  // 一個 Project 只有一個頻道
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // 頻道內的訊息
+  messages  ProjectSalesMessage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ★ 新增：Admin-Sales 專案內部對話訊息
+// 只有 Admin 與該專案的 Sales 可以讀寫
+model ProjectSalesMessage {
+  id        String   @id @default(cuid())
+  channelId String
+  channel   ProjectSalesChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  
+  content   String
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  
+  // 已讀狀態（選配，方便追蹤）
+  readAt    DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([channelId])
+  @@index([channelId, createdAt])
 }

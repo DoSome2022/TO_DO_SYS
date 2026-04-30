@@ -1,4 +1,5 @@
 
+import { adminDashboardRouter } from "./routers/admindashoard";
 import { adminUserRouter } from "./routers/adminUser";
 import { attachmentRouter } from "./routers/attachment";
 import { CommentRouter } from "./routers/comment";
@@ -13,6 +14,7 @@ import { phaseRouter } from "./routers/phase";
 import { ProjectRouter } from "./routers/project";
 import { projectCommentRouter } from "./routers/projectComment";
 import { projectMessageRouter } from "./routers/projectMessage";
+import { projectSalesChannelRouter } from "./routers/projectSalesChannel";
 import { quotationRouter } from "./routers/quotation";
 import { reviewRouter } from "./routers/review";
 
@@ -57,6 +59,8 @@ export const appRouter = router({
     review: reviewRouter,
     staff: staffRouter,
     projectMessage: projectMessageRouter,
+    adminDashboard:adminDashboardRouter,
+    projectSalesChannel:projectSalesChannelRouter
 });
 
 export type AppRouter = typeof appRouter;

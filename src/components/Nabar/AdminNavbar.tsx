@@ -15,12 +15,14 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
     { label: "服務管理", href: "/admin/services" },
     { label: "公司資料", href: "/admin/companies" },
     { label: "項目資料", href: "/admin/projects" },
+    { label: "對話(SALES)", href: "/admin/sales_chat" },
   ],
   SALES: [
     { label: "銷售看板", href: "/dashboard" },
     { label: "客戶管理", href: "/sales/customers" },
     { label: "報價管理", href: "/quotations" },
     { label: "專案檢視", href: "/sales/projects" },
+    { label: "對話(ADMIN)", href: "/sales/project_chat" },
   ],
   PM: [
     { label: "專案看板", href: "/dashboard" },

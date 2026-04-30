@@ -1,4 +1,4 @@
-// components/dashboard/DynamicDashboardClient.tsx (修改版)
+// components/dashboard/DynamicDashboardClient.tsx 
 "use client";
 
 import WorkItemsViewer from "@/components/WorkItemsViewer";
@@ -7,15 +7,19 @@ import StaffTodoManager from "@/components/StaffTodoManager";
 
 import PmDashboard from "./PmDashboard";
 import SalesDashboard_index from "./SalesDashboard";
-import AdminDashboard from "./AdminDashboard";
+// import AdminDashboard from "./AdminDashboard";
+
 
 import { useDynamicFeatures, useHasPermission, useUserProfile } from "../../../hooks/useUserProfile";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { AdminDashboardCustomizable } from "./admin/AdminDashboardCustomizable";
 
 export default function DynamicDashboardClient() {
   const { data: profile, isLoading } = useUserProfile();
   const hasPermission = useHasPermission();
   const dynamicFeatures = useDynamicFeatures();
+
+  console.log(" DAta : ", profile , " -- END -- ")
 
   if (isLoading) {
     return <div className="flex min-h-[60vh] items-center justify-center">載入工作台中...</div>;
@@ -25,7 +29,11 @@ export default function DynamicDashboardClient() {
     return <div className="p-8 text-red-500">載入失敗，請重新登入</div>;
   }
 
-  const isAdmin = hasPermission("ADMIN_ACCESS") || hasPermission("DASHBOARD_ADMIN"); 
+  const isAdmin = 
+  profile.role === "ADMIN" || 
+  profile.role === "SUPER_ADMIN" || 
+  hasPermission("ADMIN_ACCESS") || 
+  hasPermission("DASHBOARD_ADMIN");
   const isPM   = hasPermission("PROJECT_MANAGE") || hasPermission("PM_DASHBOARD");
   const isSales = hasPermission("QUOTATION_CREATE") || hasPermission("SALES_DASHBOARD");
 
@@ -44,7 +52,7 @@ export default function DynamicDashboardClient() {
 
       {/* 職位專屬 Dashboard 區域 */}
       <div className="space-y-6">
-        {isAdmin && <AdminDashboard />}
+        {isAdmin && <AdminDashboardCustomizable />}
         {isPM && <PmDashboard />}
         {isSales && <SalesDashboard_index />}
       </div>
