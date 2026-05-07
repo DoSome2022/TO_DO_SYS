@@ -1,4 +1,7 @@
 
+import { adminInvoiceRouter } from "./routers/admin/finance/invoice/page";
+import { adminPaymentRouter } from "./routers/admin/finance/payment/page";
+import { adminQuotationRouter } from "./routers/admin/finance/quotation/page";
 import { adminDashboardRouter } from "./routers/admindashoard";
 import { adminUserRouter } from "./routers/adminUser";
 import { attachmentRouter } from "./routers/attachment";
@@ -60,7 +63,10 @@ export const appRouter = router({
     staff: staffRouter,
     projectMessage: projectMessageRouter,
     adminDashboard:adminDashboardRouter,
-    projectSalesChannel:projectSalesChannelRouter
+    projectSalesChannel:projectSalesChannelRouter,
+    adminInvoice:adminInvoiceRouter,
+    adminPayment:adminPaymentRouter,
+    adminQuotation:adminQuotationRouter
 });
 
 export type AppRouter = typeof appRouter;

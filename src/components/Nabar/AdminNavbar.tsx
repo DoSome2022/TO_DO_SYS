@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { useState } from "react";
 
 // 定義每個角色的專屬選單
 const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
@@ -16,6 +17,7 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
     { label: "公司資料", href: "/admin/companies" },
     { label: "項目資料", href: "/admin/projects" },
     { label: "對話(SALES)", href: "/admin/sales_chat" },
+    { label: "💰 財務管理", href: "/admin/finance" },
   ],
   SALES: [
     { label: "銷售看板", href: "/dashboard" },
@@ -46,6 +48,8 @@ const DEFAULT_NAV = [
 export function AdminNavbar() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
+
+
 
   // 1. 取得使用者的角色。如果沒登入或是沒 role，預設當作 STAFF
   // 使用 .toUpperCase() 確保能正確對應到 ROLE_NAV_CONFIG 的 Key (例如 "admin" -> "ADMIN")

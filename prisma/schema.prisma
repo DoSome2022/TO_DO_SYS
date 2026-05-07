@@ -43,6 +43,8 @@ model User {
 
   SalesCustomerConversation SalesCustomerConversation[]
 
+  receivedPayments  Payment[] @relation("PaymentReceiver")    // 經手的收款
+
     // 新增的設備相關關聯
   borrowedEquipmentLogs EquipmentLog[] @relation("EquipmentBorrower") // 作為使用者借用的記錄
   issuedEquipmentLogs   EquipmentLog[] @relation("EquipmentIssuer")   // 作為管理員發放的記錄
@@ -73,6 +75,8 @@ model User {
 
   AdminDashboard AdminDashboard[]
 
+  createdInvoices   Invoice[] @relation("InvoiceCreator")     // 開立的收據
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -96,7 +100,8 @@ model Customer {
 
   quotations     Quotation[]
 
-  Project    Project[]   
+  Project    Project[]
+  Invoice    Invoice[]   
 
     // 發送的報價單外部訊息
   externalQuoteMessages ExternalQuoteMessage[]
@@ -241,6 +246,7 @@ model Project {
   title       String   // 例如："2024夏季網站改版"
   description String?
   status      String   @default("IN_PROGRESS") // 进行中, 已完成...
+   code       String?   @unique // ★ 新增：專案編號 (例如: PRJ-2026-001)
 
     // ★ 2. 專案的時間範圍 (解決你的問題二、三)
   startDate   DateTime? // 專案開始日
@@ -284,6 +290,7 @@ model Project {
   ProjectComment    ProjectComment[]
   comments         Comment[] // 如果 Comment 是直接掛在 Project 上才需要
   usages    DeviceUsage[]
+  invoices   Invoice[]
 
   // ★ 关键关联：这个项目包含哪些具体的员工工作？
   workItems   WorkItem[] 
@@ -940,9 +947,15 @@ enum BillingType {
 
 model Quotation {
   id            String   @id @default(cuid())
+   // ★ 新增：報價單編號（例如 Q-2026-0001）
+  number        String?  @unique
   title         String   // 例如：某某公司網站建置案
   status        QuoteStatus @default(NEGOTIATING)
 
+  // ★ 新增：有效期限
+  validUntil    DateTime?
+    // ★ 新增：備註
+  note          String?  @db.Text
   // 關聯人員
   customerId    String
   customer      Customer @relation(fields: [customerId], references: [id])
@@ -977,6 +990,7 @@ model Quotation {
 
     // 關聯到報價明細列表
   items         QuotationItem[]
+  Invoice       Invoice[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -987,6 +1001,13 @@ enum QuoteStatus {
   NEGOTIATING // 交涉中
   WON         // 贏單 (可轉專案)
   LOST        // 輸單
+  CANCELLED
+  CONVERTED   // ← 加上這行
+}
+
+enum InvoiceType {
+  STANDARD   // 一般收據
+  TAIL       // 尾款收據
 }
 
 // 報價對話紀錄 (滿足功能一的雙通道對話)
@@ -1097,6 +1118,7 @@ model CompanyProfile {
   taxId       String?     // 統編
   
   quotations  Quotation[] // 關聯到報價單
+  Invoice     Invoice[]
 
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -1123,8 +1145,8 @@ model QuotationItem {
   quotationId String
   quotation   Quotation   @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   
-  serviceId   String
-  service     Service     @relation(fields: [serviceId], references: [id])
+  serviceId   String?
+  service     Service?     @relation(fields: [serviceId], references: [id])
   
   customName  String?     // 允許業務針對此單修改服務名稱
   quantity    Int         @default(1) // 數量
@@ -1314,3 +1336,105 @@ model ProjectSalesMessage {
   @@index([channelId])
   @@index([channelId, createdAt])
 }
+
+// ==========================================
+// 收據系統（Admin 數錢用）
+// ==========================================
+// 收據狀態
+enum InvoiceStatus {
+  UNPAID    // 未付款
+  PARTIAL   // 部分付款（已收訂金/期中款）
+  PAID      // 已全額付清
+  CANCELLED // 已取消/作廢
+  
+}
+// 付款方式
+enum PaymentMethod {
+  CASH       // 現金
+  TRANSFER   // 銀行轉帳
+  CHECK      // 支票
+  CREDIT_CARD // 信用卡
+  LINE_PAY   // 行動支付
+  OTHER      // 其他
+}
+// 付款類型
+enum PaymentType {
+  DOWN_PAYMENT  // 訂金
+  MILESTONE     // 期中款
+  FINAL         // 尾款
+  FULL          // 全額一次付清
+  
+}
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNo       String        @unique // 收據編號 (例如: INV-2026-0001)
+  // 關聯
+  quotationId     String?       
+  quotation       Quotation?    @relation(fields: [quotationId], references: [id])
+  projectId       String?
+  project         Project?      @relation(fields: [projectId], references: [id])
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  // 公司抬頭（開收據的公司）
+  companyProfileId String?
+  companyProfile   CompanyProfile? @relation(fields: [companyProfileId], references: [id])
+  // 金額核心
+  totalAmount     Decimal       // 收據總金額
+  paidAmount      Decimal       @default(0) // 已付金額
+  balanceAmount   Decimal       // 未付金額（尾款）= totalAmount - paidAmount
+  // 狀態
+  status          InvoiceStatus @default(UNPAID)
+  // 日期
+  issuedDate      DateTime      @default(now()) // 開立日期
+  dueDate         DateTime?                      // 付款到期日
+  // 備註
+  notes           String?
+  // 經手人
+  createdById     String
+  createdBy       User          @relation("InvoiceCreator", fields: [createdById], references: [id])
+  // 關聯付款紀錄
+  payments        Payment[]
+
+  type            InvoiceType  @default(STANDARD)
+  hasTailInvoice  Boolean      @default(false)
+  parentInvoiceId String?      // 關聯到原收據
+  parentInvoice   Invoice?     @relation("TailInvoices", fields: [parentInvoiceId], references: [id])
+  tailInvoices    Invoice[]    @relation("TailInvoices")
+
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  @@index([customerId])
+  @@index([projectId])
+  @@index([status])
+  @@index([issuedDate])
+  @@index([createdById])
+}
+model Payment {
+  id            String        @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  // 金額
+  amount        Decimal       // 本次付款金額
+  // 類型
+  type          PaymentType   // 訂金 / 期中款 / 尾款 / 全額
+  // 付款方式
+  method        PaymentMethod
+  // 參考資訊
+  reference     String?       // 交易參考編號（轉帳末五碼、支票號碼等）
+  // 備註
+  note          String?
+  // 付款人
+  payerName     String?       // 付款人名稱
+  // 收款日期
+  paidAt        DateTime      @default(now())
+  // 經手人
+  receivedById  String?
+  receivedBy    User?         @relation("PaymentReceiver", fields: [receivedById], references: [id])
+  createdAt     DateTime      @default(now())
+  @@index([invoiceId])
+  @@index([paidAt])
+  @@index([type])
+}
+
+

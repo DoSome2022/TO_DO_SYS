@@ -124,3 +124,40 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+/* 列印樣式 */
+@media print {
+  /* 隱藏不相關元素 */
+  nav, header, footer, .sidebar,
+  button, .print\:hidden {
+    display: none !important;
+  }
+
+  /* 顯示列印內容 */
+  .print\:block {
+    display: block !important;
+  }
+
+  /* 頁面設定 */
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  body {
+    font-family: "Noto Sans TC", sans-serif;
+    color: #000;
+    background: #fff;
+  }
+
+  /* 避免分頁中斷 */
+  table, tr, img {
+    page-break-inside: avoid;
+  }
+
+  /* 強制分頁 */
+  .page-break {
+    page-break-before: always;
+  }
+}
