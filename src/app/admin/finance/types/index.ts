@@ -4,6 +4,7 @@
 export type InvoiceStatus = "UNPAID" | "PARTIAL" | "PAID" | "CANCELLED";
 export type PaymentType = "DOWN_PAYMENT" | "MILESTONE" | "FINAL" | "FULL";
 export type PaymentMethod = "CASH" | "TRANSFER" | "CHECK" | "CREDIT_CARD" | "LINE_PAY" | "OTHER";
+export type QuotationStatus = "DRAFT" | "NEGOTIATING" | "WON" | "LOST" | "CANCELLED" | "CONVERTED";
 
 // ===== 搜索共用參數 =====
 export interface FinanceSearchParams {
@@ -19,7 +20,8 @@ export interface FinanceSearchParams {
   companyName?: string;
   page?: number;
   pageSize?: number;
-  status?: InvoiceStatus;
+  // status?: InvoiceStatus;
+  // status?: string;
   paymentType?: PaymentType;
   paymentMethod?: PaymentMethod;
 }
@@ -37,7 +39,7 @@ export interface QuotationSearchResult {
     sales: { id: string; name: string | null };
     companyProfile: { id: string; name: string } | null;
     project: { id: string; code: string | null; title: string } | null;
-    items: Array<{ service: { name: string } }>;
+    items: Array<{ service: { name: string } | null }>;
   }>;
   total: number;
   page: number;

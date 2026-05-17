@@ -10,8 +10,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Send, User, Building, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
-import { api } from "../../../trpc/server";
+
 import { Badge } from "../ui/badge";
+import { trpc } from "../../../trpc/client";
 
 
 interface Message {
@@ -50,13 +51,14 @@ export function VersionChat({ versionId, versionName, customerId }: VersionChatP
   };
 
   // 獲取對話記錄
-  const { data: messages, refetch } = api.phase.getVersionMessages.useQuery(
-    { versionId, userType: currentUser.type as any, userId: currentUser.id },
-    { enabled: !!versionId }
-  );
+const { data: messages, refetch } = trpc.phase.getVersionMessages.useQuery(
+  { versionId },
+  { enabled: !!versionId }
+);
+
 
   // 發送訊息
-  const sendMessageMutation = api.phase.sendVersionMessage.useMutation({
+  const sendMessageMutation = trpc.phase.sendVersionMessage.useMutation({
     onSuccess: () => {
       setMessage("");
       refetch();
@@ -109,9 +111,10 @@ export function VersionChat({ versionId, versionName, customerId }: VersionChatP
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-4">
             {messages && messages.length > 0 ? (
-              messages.map((msg: Message) => {
-                const isCurrentUser = msg.senderId === currentUser.id;
+              messages.map((msg) => {
+                const isCurrentUser = msg.sender?.id === currentUser.id;
                 const isCustomer = msg.senderType === "customer";
+
                 
                 return (
                   <div
@@ -131,9 +134,11 @@ export function VersionChat({ versionId, versionName, customerId }: VersionChatP
                     <div className={`flex-1 ${isCurrentUser ? "items-end" : ""}`}>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium">
-                          {isCustomer
-                            ? msg.senderCustomer?.name || msg.senderCustomer?.companyname || "客戶"
-                            : msg.sender?.name || "業務"}
+                          {msg.senderName || (isCustomer
+                            ? (msg.sender as { name?: string | null; companyname?: string | null })?.name || 
+                              (msg.sender as { name?: string | null; companyname?: string | null })?.companyname || "客戶"
+                            : msg.sender?.name || "業務")}
+
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {format(new Date(msg.createdAt), "HH:mm", { locale: zhTW })}
@@ -179,7 +184,7 @@ export function VersionChat({ versionId, versionName, customerId }: VersionChatP
             />
             <Button
               onClick={handleSendMessage}
-              disabled={!message.trim() || sendMessageMutation.isLoading}
+              disabled={!message.trim() || sendMessageMutation.isPending}
               className="self-end"
             >
               <Send className="w-4 h-4" />

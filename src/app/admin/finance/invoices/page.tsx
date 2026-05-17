@@ -1,8 +1,8 @@
-//src/app/admin/finance/invoices/page.tsx
+// src/app/admin/finance/invoices/page.tsx
 
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Plus, Download, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInvoiceSearch } from "../api";
@@ -10,11 +10,7 @@ import { useInvoiceFilters } from "../hooks/useInvoiceFilters";
 import { FinanceSearchBar } from "../components/FinanceSearchBar";
 import { InvoiceTable } from "../components/InvoiceTable";
 import { InvoiceCreateForm } from "../components/InvoiceCreateForm";
-// import { StatusBadge } from "../components/StatusBadge";
 import type { InvoiceStatus } from "../types";
-
-
-
 
 const STATUS_OPTIONS: { value: InvoiceStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "全部狀態" },
@@ -30,7 +26,7 @@ const BALANCE_OPTIONS: { value: boolean | null; label: string }[] = [
   { value: false, label: "已結清" },
 ];
 
-export default function InvoicesPage() {
+function InvoicesPageContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const {
     searchParams,
@@ -45,8 +41,7 @@ export default function InvoicesPage() {
   // ── 查詢資料 ──
   const { data, isLoading, isError, error } = useInvoiceSearch(searchParams);
 
-
-  console.log("-- Data -- :", data , "-- End --")
+  console.log("-- Data -- :", data, "-- End --");
 
   // ── 狀態篩選器（作為 extraFilters 傳給 SearchBar） ──
   const statusExtraFilters = (
@@ -65,7 +60,9 @@ export default function InvoicesPage() {
           )}
         >
           {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
           ))}
         </select>
       </div>
@@ -87,7 +84,9 @@ export default function InvoicesPage() {
           )}
         >
           {BALANCE_OPTIONS.map((opt) => (
-            <option key={String(opt.value)} value={String(opt.value)}>{opt.label}</option>
+            <option key={String(opt.value)} value={String(opt.value)}>
+              {opt.label}
+            </option>
           ))}
         </select>
       </div>
@@ -174,7 +173,9 @@ export default function InvoicesPage() {
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-2 text-red-500">
             <p className="text-sm font-medium">載入失敗</p>
-            <p className="text-xs text-zinc-400">{(error as unknown as Error)?.message ?? "請稍後再試"}</p>
+            <p className="text-xs text-zinc-400">
+              {(error as unknown as Error)?.message ?? "請稍後再試"}
+            </p>
           </div>
         </div>
       ) : data && data.items.length === 0 ? (
@@ -186,10 +187,8 @@ export default function InvoicesPage() {
         </div>
       ) : data ? (
         <>
-                <InvoiceTable
-                data={data}          // ← 正確，傳整個分頁物件
-                accentColor="#0078D4"
-                />
+          <InvoiceTable data={data} accentColor="#0078D4" />
+
           {/* ── 分頁 ── */}
           {data.totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-4">
@@ -206,7 +205,6 @@ export default function InvoicesPage() {
                 上一頁
               </button>
               {Array.from({ length: Math.min(data.totalPages, 7) }, (_, i) => {
-                // 顯示附近頁碼
                 const start = Math.max(1, data.page - 3);
                 const pageNum = start + i;
                 if (pageNum > data.totalPages) return null;
@@ -220,7 +218,11 @@ export default function InvoicesPage() {
                         ? "text-white"
                         : "border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
                     )}
-                    style={pageNum === data.page ? { backgroundColor: "#0078D4" } : undefined}
+                    style={
+                      pageNum === data.page
+                        ? { backgroundColor: "#0078D4" }
+                        : undefined
+                    }
                   >
                     {pageNum}
                   </button>
@@ -248,10 +250,26 @@ export default function InvoicesPage() {
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {
-          // 新增成功後重新查詢
           handleSearch({});
         }}
       />
     </div>
+  );
+}
+
+export default function InvoicesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-zinc-300 border-t-blue-500 rounded-full animate-spin" />
+            <p className="text-sm text-zinc-400">載入中...</p>
+          </div>
+        </div>
+      }
+    >
+      <InvoicesPageContent />
+    </Suspense>
   );
 }

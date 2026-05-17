@@ -1074,7 +1074,7 @@ model SalesCustomerConversation {
   createdAt   DateTime @default(now())
   
 // 這裡加上發送者類型，用來辨識是客戶還是業務發的 (例如 "CUSTOMER" 或 "SALES")
-  senderType  String   @default("CUSTOMER") 
+  senderType  SenderType   @default(CUSTOMER) 
 
   // 關聯
   salesId     String
@@ -1438,3 +1438,7 @@ model Payment {
 }
 
 
+enum SenderType {
+  SALES
+  CUSTOMER
+}

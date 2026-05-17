@@ -241,7 +241,7 @@ export default function QuotationDetailClient({
                   <tr key={item.id} className="border-b border-gray-100">
                     <td className="py-3 px-2">
                       <div className="font-medium text-gray-900">
-                        {item.customName || item.service.name}
+                       {item.customName || item.service?.name || '（無服務名稱）'}
                       </div>
                     </td>
                     <td className="text-right py-3 px-2 text-gray-600">

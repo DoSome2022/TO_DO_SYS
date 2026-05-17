@@ -38,11 +38,11 @@ export function useConversation(customerId: string) {
   const sendMessageMutation = api.salesCustomer.sendMessage.useMutation();
 
   // 標記已讀 mutation
-  const markAsRead = api.salesCustomer.getConversations.useMutation({
-    onSuccess: () => {
-      refetch();
-    },
-  });
+  // const markAsRead = api.salesCustomer.getConversations.useMutation({
+  //   onSuccess: () => {
+  //     refetch();
+  //   },
+  // });
 
   // 處理訊息數據
   useEffect(() => {

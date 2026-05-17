@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+
 import { useQuotationList } from "../hooks/useQuotationList";
 import { FinanceSearchBar } from "../components/FinanceSearchBar";
 import { QuotationTable } from "../components/QuotationTable";
 
 export default function AdminQuotationsPage() {
-  const { data, isLoading, searchParams, updateSearch } = useQuotationList();
+  const { data, isLoading, updateSearch } = useQuotationList();
 
   const handleSearch = (filters: Record<string, string>) => {
     updateSearch({

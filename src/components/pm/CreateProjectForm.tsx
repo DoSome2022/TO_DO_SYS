@@ -15,13 +15,20 @@ interface CreateProjectFormProps {
 }
 
 export default function CreateProjectForm({ onSuccess }: CreateProjectFormProps) {
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    priority: "MEDIUM", // 預設值
-    startDate: "",
-    endDate: "",
-  });
+const [formData, setFormData] = useState<{
+  title: string;
+  description: string;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  startDate: string;
+  endDate: string;
+}>({
+  title: "",
+  description: "",
+  priority: "MEDIUM",   // ← 這裡還是給實際值
+  startDate: "",
+  endDate: "",
+});
+
 
   const createProject = trpc.project.createProject.useMutation({
     onSuccess: () => {
@@ -30,7 +37,7 @@ export default function CreateProjectForm({ onSuccess }: CreateProjectFormProps)
       setFormData({
         title: "",
         description: "",
-        priority: "MEDIUM",
+        priority: "LOW",
         startDate: "",
         endDate: "",
       });
@@ -89,7 +96,10 @@ export default function CreateProjectForm({ onSuccess }: CreateProjectFormProps)
         <Label htmlFor="priority">優先級</Label>
         <Select 
             value={formData.priority} 
-            onValueChange={(val) => setFormData({ ...formData, priority: val })}
+            onValueChange={(val: "LOW" | "MEDIUM" | "HIGH") => 
+            setFormData({ ...formData, priority: val })
+          }
+
         >
           <SelectTrigger>
             <SelectValue placeholder="選擇優先級" />

@@ -2,7 +2,7 @@
 
 import { api } from "@/utils/api";
 import { keepPreviousData } from "@tanstack/react-query"; // 新增匯入
-import type { FinanceSearchParams } from "../types";
+import type { FinanceSearchParams,InvoiceStatus } from "../types";
 
 // ==========================================
 // 報價單 API
@@ -27,17 +27,25 @@ export function useQuotationSummary(year?: number) {
 // ==========================================
 // 收據 API
 // ==========================================
-export function useInvoiceSearch(
-  params: FinanceSearchParams & {
-    status?: string;
-    hasBalance?: boolean;
-  }
-) {
+// export function useInvoiceSearch(
+//   params: FinanceSearchParams & {
+//     status?: string;
+//     hasBalance?: boolean;
+//   }
+// ) {
+//   return api.adminInvoice.search.useQuery(params, {
+//     placeholderData: keepPreviousData, // 修改這裡
+//   });
+// }
+type InvoiceSearchParams = FinanceSearchParams & {
+  status?: InvoiceStatus;
+  hasBalance?: boolean;
+};
+export function useInvoiceSearch(params: InvoiceSearchParams) {
   return api.adminInvoice.search.useQuery(params, {
-    placeholderData: keepPreviousData, // 修改這裡
+    placeholderData: keepPreviousData,
   });
 }
-
 export function useInvoiceDetail(id: string) {
   return api.adminInvoice.getById.useQuery(
     { id },

@@ -87,8 +87,7 @@ export const reviewRouter = router({
       if (input.reviewStatus === 'REJECTED') {
         await db.workItem.create({
           data: {
-            title: `修改版本：${version.versionName}`,
-            description: input.reviewComment || "客戶要求修改，請查看審核意見",
+            title: `修改版本：${version.versionName} - ${input.reviewComment || "客戶要求修改，請查看審核意見"}`,
             projectId: version.projectId,
             phaseId: version.phaseId,
             staffId: version.userId,

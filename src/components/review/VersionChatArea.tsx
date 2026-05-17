@@ -89,7 +89,7 @@ export function VersionChatArea({
   
   const sendMessage = (content: string) => {
     if (isDeliverableChat) {
-      sendDeliverableMessage({ deliverableId: chatId, content, customerId });
+      sendDeliverableMessage({ deliverableId: chatId, content, customerId, senderType: "customer", senderId: customerId });
     } else {
       sendVersionMessage({ versionId: chatId, content, customerId });
     }

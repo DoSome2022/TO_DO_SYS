@@ -183,23 +183,29 @@ export async function createDefaultDashboard(
 
   // 2. 批次建立所有預設 Widget
   await db.dashboardWidget.createMany({
-    data: DEFAULT_WIDGETS.map((w) => {
-      const chartConfig = getDefaultChartConfig(w.metricKey);
-      const filterConfig = getDefaultFilterConfig(w.metricKey);
-      
-      return {
-        dashboardId: dashboard.id,
-        metricKey: w.metricKey,
-        position: w.position,
-        width: w.width,
-        height: w.height,
-        customTitle: w.customTitle,
-        isVisible: true,
-        // ★ 關鍵：undefined 就不帶入，避免 type error
-        ...(chartConfig !== undefined ? { chartConfig } : {}),
-        ...(filterConfig !== undefined ? { filterConfig } : {}),
-      };
-    }),
+data: DEFAULT_WIDGETS.map((w) => {
+  const chartConfig = getDefaultChartConfig(w.metricKey);
+  const filterConfig = getDefaultFilterConfig(w.metricKey);
+  
+  // 4 欄網格，計算 x, y 座標
+  const cols = 4;
+  const x = (w.position % cols);
+  const y = Math.floor(w.position / cols);
+  
+  return {
+    dashboardId: dashboard.id,
+    metricKey: w.metricKey,
+    position: w.position,
+    width: w.width,
+    height: w.height,
+    customTitle: w.customTitle,
+    isVisible: true,
+    layout: { x, y, w: w.width, h: w.height },  // ← 新增這行
+    ...(chartConfig !== undefined ? { chartConfig } : {}),
+    ...(filterConfig !== undefined ? { filterConfig } : {}),
+  };
+}),
+
   });
 
   // 3. 回傳完整的儀表板

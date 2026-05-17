@@ -14,6 +14,13 @@ const formSchema = z.object({
   phone: z.string().optional(),
   companyname: z.string().optional(),
   contactname: z.string().optional(),
+  // 👇 補上缺少的欄位
+  customname: z.string().optional(),
+  contactphone: z.string().optional(),
+  companyaddress: z.string().optional(),
+  companyemail: z.string().optional(),
+  // 👇 password 在新增時為必填
+  password: z.string().min(1, "請輸入密碼"),
 });
 
 export default function CustomerForm({ customerId }: { customerId?: string }) {
