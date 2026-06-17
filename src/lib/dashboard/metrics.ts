@@ -236,4 +236,79 @@ export const DASHBOARD_METRICS: MetricDefinition[] = [
     resolveRelations: [],
     defaultConfig: { filters: { status: "PENDING" } },
   },
+    // ===== 🆕 員工工作進度指標 =====
+  {
+    key: "staff_workload_table",
+    label: "員工工作量總表",
+    description: "每位員工的 WorkItem 與待辦完成狀況",
+    category: "tasks",
+    displayType: "TABLE",
+    icon: "Users",
+    resolveRelations: [
+      { field: "staffId", displayField: "name", model: "User" },
+    ],
+    defaultConfig: { sortBy: "pendingWorkItems", sortOrder: "desc" },
+  },
+  {
+    key: "staff_overdue_summary",
+    label: "逾期工作摘要",
+    description: "逾期的 WorkItem 與 Staff_TODO 按員工統計",
+    category: "tasks",
+    displayType: "LIST",
+    icon: "AlertCircle",
+    resolveRelations: [
+      { field: "staffId", displayField: "name", model: "User" },
+    ],
+    defaultConfig: { limit: 15 },
+  },
+  {
+    key: "staff_todo_by_employee",
+    label: "員工待辦完成率",
+    description: "各員工的待辦事項完成比例長條圖",
+    category: "tasks",
+    displayType: "CHART_BAR",
+    icon: "BarChart3",
+    resolveRelations: [
+      { field: "staff_id", displayField: "name", model: "User" },
+    ],
+    defaultConfig: {},
+  },
+
+  // ===== 🆕 專案工作進度指標 =====
+  {
+    key: "project_progress_table",
+    label: "專案進度總表",
+    description: "每個專案的階段與工作項完成進度",
+    category: "projects",
+    displayType: "TABLE",
+    icon: "FolderKanban",
+    resolveRelations: [
+      { field: "pmId", displayField: "name", model: "User" },
+    ],
+    defaultConfig: { sortBy: "deadline", sortOrder: "asc" },
+  },
+  {
+    key: "project_phase_status_pie",
+    label: "階段狀態分布",
+    description: "所有專案階段的狀態（待開始/進行中/已完成）分布",
+    category: "projects",
+    displayType: "CHART_PIE",
+    icon: "PieChart",
+    resolveRelations: [],
+    defaultConfig: {},
+  },
+  {
+    key: "project_upcoming_deadlines",
+    label: "即將到期專案",
+    description: "7天內將截止的專案及其完成率",
+    category: "projects",
+    displayType: "LIST",
+    icon: "Timer",
+    resolveRelations: [
+      { field: "pmId", displayField: "name", model: "User" },
+    ],
+    defaultConfig: { dateRange: "THIS_WEEK", limit: 10 },
+  },
+
+
 ];

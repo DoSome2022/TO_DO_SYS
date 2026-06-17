@@ -1,17 +1,14 @@
-// src/components/dashboard/admin/AdminDashboardCustomizable.tsx
-
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import type { Layout, LayoutItem } from 'react-grid-layout';  // 🔁 改為 type import + 加 LayoutItem
+import type { Layout } from 'react-grid-layout';
 import { WidgetGrid } from './WidgetGrid';
 import { AdminDashboardSettings } from './AdminDashboardSettings';
 import { api } from '@/utils/api';
-import type { DashboardWidgetLayout } from '@/types/dashboard';
+import type { DashboardWidgetLayout, WidgetWithLayout } from '@/types/dashboard';
 import { MetricSelectorPanel } from './metricSelectorPanel';
 
-// ---------- 輔助型別 ----------
 interface WidgetRaw {
   id: string;
   metricKey: string;
@@ -25,16 +22,6 @@ interface WidgetRaw {
   layout?: Record<string, unknown> | null;
 }
 
-interface DashboardRaw {
-  id: string;
-  name: string;
-  isDefault: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  widgets?: WidgetRaw[];
-}
-// ----------------------------
-
 export function AdminDashboardCustomizable() {
   const [activeDashboardId, setActiveDashboardId] = useState<string | null>(null);
   const [globalTimeRange, setGlobalTimeRange] = useState<{ start: Date; end: Date }>({
@@ -43,7 +30,13 @@ export function AdminDashboardCustomizable() {
   });
   const [showMetricPanel, setShowMetricPanel] = useState(false);
 
-  const [isInitialLayout, setIsInitialLayout] = useState(true);
+  // 🔥 本地 layout 狀態：拖動時即時更新，但不同步到 DB
+  // 這樣 react-grid-layout 在拖動過程中能正常顯示
+// 🔥 本地 layout 狀態：完整 widget 物件
+const [localLayout, setLocalLayout] = useState<WidgetWithLayout[] | null>(null);
+
+
+  const utils = api.useUtils();
 
   const { data: dashboards = [] } = api.adminDashboard.getAllDashboardConfigs.useQuery();
 
@@ -53,172 +46,227 @@ export function AdminDashboardCustomizable() {
       { enabled: activeDashboardId != null },
     );
 
-  const saveLayoutMutation = api.adminDashboard.saveDashboardConfig.useMutation({
-    onSuccess: () => {
-      toast.success('佈局已儲存');
-      refetchDashboard();
-    },
-    onError: (err) => toast.error(`儲存失敗: ${err.message}`),
-  });
-
-  const createDashboardMutation = api.adminDashboard.createDashboard.useMutation({
-    onSuccess: (newDashboard) => {
-      toast.success('儀表板已建立');
-      setActiveDashboardId(newDashboard.id);
-      refetchDashboard();
-    },
-    onError: (err) => toast.error(`建立失敗: ${err.message}`),
-  });
-
-    useEffect(() => {
-      if (!activeDashboardId && dashboards.length > 0) {
-        setActiveDashboardId(dashboards[0].id);
-      }
-    }, [dashboards, activeDashboardId]);
-
-  const widgets = useMemo(() => {
+  // 從 DB 計算 widgets
+  const dbWidgets = useMemo(() => {
     if (!dashboardConfig?.widgets) return [];
     return (dashboardConfig.widgets as WidgetRaw[]).map((w) => ({
       id: w.id,
       metricKey: w.metricKey,
       layout: {
         i: w.id,
-        x: (w.layout?.x as number) ?? 0,
-        y: (w.layout?.y as number) ?? 0,
-        w: (w.layout?.w as number) ?? 3,
-        h: (w.layout?.h as number) ?? 2,
+        x: Number(w.layout?.x) ?? 0,
+        y: Number(w.layout?.y) ?? 0,
+        w: Number(w.layout?.w) ?? 3,
+        h: Number(w.layout?.h) ?? 2,
       } as DashboardWidgetLayout,
     }));
   }, [dashboardConfig]);
 
-  // ✅ 修正重點：Layout 本身就是 LayoutItem[]，不要再加 []
-const handleLayoutChange = useCallback(
-    (newLayout: Layout) => {
-      // ⛔ 跳過首次掛載時的自動觸發
-      if (isInitialLayout) {
-        setIsInitialLayout(false);
-        return;
-      }
-      if (!dashboardConfig) return;
+  // 🔥 最終使用的 widgets：有 localLayout 時用 local，否則用 DB 的
+  // 這樣拖動過程中不會閃回，放開後用 localLayout 保持位置
+  // 直到下一次 dashboardConfig 更新（refetchDashboard）後會自動取代 localLayout
+  const widgets = localLayout ?? dbWidgets;
 
-      // ✅ 關鍵：比對 layout 是否有實質改變
-      const hasChanged = widgets.some((w) => {
-        const found = newLayout.find((l) => l.i === w.id);
-        if (!found) return true; // 找不到（不該發生）
-        return (
-          found.x !== w.layout.x ||
-          found.y !== w.layout.y ||
-          found.w !== w.layout.w ||
-          found.h !== w.layout.h
-        );
-      });
+// ───────── saveLayoutMutation ─────────
+const saveLayoutMutation = api.adminDashboard.saveDashboardConfig.useMutation({
+  onSuccess: () => {
+    toast.success('佈局已儲存');
+    handleSaveSuccess();   // ← 統一處理
+  },
+  onError: (err) => toast.error(`儲存失敗: ${err.message}`),
+});
 
-      // 如果 layout 沒變（例如只是 refetch 後重新渲染），跳過 mutation
-      if (!hasChanged) return;
+// 🔥 新增：儲存成功後的統一處理
+const handleSaveSuccess = useCallback(() => {
+  if (!activeDashboardId) return;
+  utils.adminDashboard.getDashboardConfig.invalidate({ dashboardId: activeDashboardId })
+    .then(() => refetchDashboard());
+}, [activeDashboardId, utils, refetchDashboard]);
 
-      // 真的有變動才儲存
-      const updatedWidgets = widgets.map((w) => {
-        const found = newLayout.find((l) => l.i === w.id);
-        return found
-          ? {
-              ...w,
-              layout: {
-                i: w.id,
-                x: found.x,
-                y: found.y,
-                w: found.w,
-                h: found.h,
-              } as DashboardWidgetLayout,
-            }
-          : w;
-      });
 
-      saveLayoutMutation.mutate({
-        widgets: updatedWidgets.map((w) => ({
-          id: w.id,
-          metricKey: w.metricKey,
-          position: 0,
-          layout: w.layout,
-        })),
-      });
+  // ───────── createDashboardMutation ─────────
+  const createDashboardMutation = api.adminDashboard.createDashboard.useMutation({
+    onSuccess: (newDashboard) => {
+      toast.success('儀表板已建立');
+      setActiveDashboardId(newDashboard.id);
+      utils.adminDashboard.getAllDashboardConfigs.invalidate();
     },
-    [dashboardConfig, widgets, saveLayoutMutation, isInitialLayout],
+    onError: (err) => toast.error(`建立失敗: ${err.message}`),
+  });
+
+  // ───────── 刪除儀表板 ─────────
+  const handleDeleteDashboard = useCallback((deletedId: string) => {
+    if (activeDashboardId === deletedId) {
+      setActiveDashboardId(null);
+    }
+  }, [activeDashboardId]);
+
+  // 自動選第一個儀表板
+  useEffect(() => {
+    if (!activeDashboardId && dashboards.length > 0) {
+      setActiveDashboardId(dashboards[0].id);
+    }
+  }, [dashboards, activeDashboardId]);
+
+  // 🔥 切換儀表板時，清除本地 layout
+  useEffect(() => {
+    setLocalLayout(null);
+  }, [activeDashboardId]);
+
+  // ═══════════════════════════════════════
+  // 🔥 核心修正：onLayoutChange vs onDragStop
+  // ═══════════════════════════════════════
+
+  // `onLayoutChange`：只更新本地狀態（讓拖動順暢），不存 DB
+// `onLayoutChange`：只更新本地狀態（讓拖動順暢），不存 DB
+const handleLayoutChange = useCallback(
+  (newLayout: Layout) => {
+    if (!dashboardConfig || !activeDashboardId) return;
+
+    // 🔥 從 dbWidgets 取得完整資料，只更新 layout 位置
+    const newLocalLayout: WidgetWithLayout[] = newLayout.map((l) => {
+      const existing = dbWidgets.find((w) => w.id === l.i);
+      return {
+        id: l.i,
+        metricKey: existing?.metricKey ?? '',
+        layout: {
+          i: l.i,
+          x: Number(l.x),
+          y: Number(l.y),
+          w: Number(l.w),
+          h: Number(l.h),
+        },
+      };
+    });
+
+    setLocalLayout(newLocalLayout);
+  },
+  [dashboardConfig, activeDashboardId, dbWidgets],
 );
 
 
+  // `onDragStop`：拖動結束後才存 DB（只存一次！）
+  const handleDragStop = useCallback(
+    (finalLayout: Layout) => {
+      if (!dashboardConfig || !activeDashboardId) return;
+
+      // 從 dbWidgets 取得 metricKey（localLayout 沒有 metricKey）
+      const updatedWidgets = finalLayout.map((l) => {
+        const existing = dbWidgets.find((w) => w.id === l.i);
+        return {
+          id: l.i,
+          metricKey: existing?.metricKey ?? '',
+          position: 0,
+          layout: {
+            i: l.i,
+            x: Number(l.x),
+            y: Number(l.y),
+            w: Number(l.w),
+            h: Number(l.h),
+          },
+        };
+      });
+
+      saveLayoutMutation.mutate({
+        dashboardId: activeDashboardId,
+        widgets: updatedWidgets,
+      });
+    },
+    [dashboardConfig, dbWidgets, saveLayoutMutation, activeDashboardId],
+  );
+
+// ───────── addWidget ─────────
 const addWidget = useCallback(
   (metricKey: string) => {
-    if (!dashboardConfig) return;
+    if (!dashboardConfig || !activeDashboardId) return;
+    
+    setLocalLayout(null);
+    
     saveLayoutMutation.mutate(
       {
+        dashboardId: activeDashboardId,
         widgets: [
-          // 更新現有 widget，使用原 layout
-          ...widgets.map((w) => ({
+          ...dbWidgets.map((w) => ({
             id: w.id,
             metricKey: w.metricKey,
             position: 0,
             layout: w.layout,
           })),
-          // 新增 widget：構造完整 layout 物件
           {
             metricKey,
-            position: widgets.length,
+            position: dbWidgets.length,
             layout: { x: 0, y: 0, w: 3, h: 2 },
           },
         ],
       },
-      { onSuccess: () => setShowMetricPanel(false) },
+      {
+        onSuccess: () => {
+          setShowMetricPanel(false);
+          // 🔥 改為 invalidate + refetch 搭配，強制刷新 dashboardConfig
+          utils.adminDashboard.getDashboardConfig.invalidate({ dashboardId: activeDashboardId })
+            .then(() => {
+              refetchDashboard();
+            });
+        },
+      },
     );
   },
-  [dashboardConfig, widgets, saveLayoutMutation],
+  [dashboardConfig, dbWidgets, saveLayoutMutation, activeDashboardId, utils, refetchDashboard],
 );
 
+// ───────── removeWidget ─────────
 const removeWidget = useCallback(
   (widgetId: string) => {
-    if (!dashboardConfig) return;
-    const filtered = widgets.filter((w) => w.id !== widgetId);
+    if (!dashboardConfig || !activeDashboardId) return;
+    
+    setLocalLayout(null);
+    
+    const filtered = dbWidgets.filter((w) => w.id !== widgetId);
     saveLayoutMutation.mutate({
+      dashboardId: activeDashboardId,
       widgets: filtered.map((w, index) => ({
         id: w.id,
         metricKey: w.metricKey,
-        position: index,             // ← 用 index 重新排序
+        position: index,
         layout: w.layout,
       })),
     });
+    // 🔥 remove 也加上同樣處理（可選，但建議統一）
   },
-  [dashboardConfig, widgets, saveLayoutMutation],
+  [dashboardConfig, dbWidgets, saveLayoutMutation, activeDashboardId],
 );
 
 
+  // ───────── handleDashboardChange ─────────
   const handleDashboardChange = useCallback((newId: string) => {
     setActiveDashboardId(newId);
     setShowMetricPanel(false);
   }, []);
 
-if (!dashboards || dashboards.length === 0) {
-  return (
-    <div className="flex flex-col items-center justify-center h-64 gap-4">
-      <p className="text-gray-500">尚未建立任何儀表板</p>
-      <button
+  // ───────── 空儀表板 UI ─────────
+  if (!dashboards || dashboards.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-gray-500">尚未建立任何儀表板</p>
+        <button
           onClick={() => {
-    // 檢查是否已經有名為「我的儀表板」的儀表板
-    const existing = dashboards.find(d => d.name === '我的儀表板');
-    if (existing) {
-      setActiveDashboardId(existing.id);  // 直接切換過去
-      toast('已存在「我的儀表板」，已為您切換');
-    } else {
-      createDashboardMutation.mutate({ name: '我的儀表板' });
-    }
-  }}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >
-        + 建立第一個儀表板
-      </button>
-    </div>
-  );
-}
+            const existing = dashboards.find(d => d.name === '我的儀表板');
+            if (existing) {
+              setActiveDashboardId(existing.id);
+              toast('已存在「我的儀表板」，已為您切換');
+            } else {
+              createDashboardMutation.mutate({ name: '我的儀表板' });
+            }
+          }}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          + 建立第一個儀表板
+        </button>
+      </div>
+    );
+  }
 
-
+  // ───────── 主要 UI ─────────
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center gap-4 flex-wrap">
@@ -226,6 +274,7 @@ if (!dashboards || dashboards.length === 0) {
           dashboards={dashboards}
           activeId={activeDashboardId ?? ''}
           onSelect={handleDashboardChange}
+          onDelete={handleDeleteDashboard}
         />
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-600">時間：</label>
@@ -273,6 +322,7 @@ if (!dashboards || dashboards.length === 0) {
               widgets={widgets}
               globalTimeRange={globalTimeRange}
               onLayoutChange={handleLayoutChange}
+              onDragStop={handleDragStop}    // 🔥 新增
               onRemove={removeWidget}
             />
           )}

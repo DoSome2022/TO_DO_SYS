@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useState } from "react";
+
 
 // 定義每個角色的專屬選單
 const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
@@ -25,6 +25,7 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
     { label: "報價管理", href: "/quotations" },
     { label: "專案檢視", href: "/sales/projects" },
     { label: "對話(ADMIN)", href: "/sales/project_chat" },
+    { label: "對話(客人)", href: "/sales/conversations" },
   ],
   PM: [
     { label: "專案看板", href: "/dashboard" },

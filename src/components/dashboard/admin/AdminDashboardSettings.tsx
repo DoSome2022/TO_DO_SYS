@@ -13,6 +13,7 @@ interface AdminDashboardSettingsProps {
   dashboards: DashboardBrief[];
   activeId: string;  // ← 改為 string
   onSelect: (dashboardId: string) => void;  // ← 改為 string
+  onDelete: (deletedId: string) => void;
 }
 
 
@@ -20,6 +21,7 @@ export function AdminDashboardSettings({
   dashboards,
   activeId,
   onSelect,
+  onDelete,
 }: AdminDashboardSettingsProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newName, setNewName] = useState('');
@@ -35,20 +37,50 @@ export function AdminDashboardSettings({
     onError: (err) => toast.error(`创建失败: ${err.message}`),
   });
 
-  const deleteMutation = api.adminDashboard.deleteDashboard.useMutation({
-    onSuccess: () => {
-      toast.success('仪表板已删除');
-      utils.adminDashboard.getAllDashboardConfigs.refetch();
-      // 如果删除的是当前激活的，切换至第一个
-    },
-    onError: (err) => toast.error(`删除失败: ${err.message}`),
-  });
+  // const deleteMutation = api.adminDashboard.deleteDashboard.useMutation({
+  //   onSuccess: () => {
+  //     toast.success('仪表板已删除');
+  //     utils.adminDashboard.getAllDashboardConfigs.refetch();
+  //     // 🔥 通知父元件去處理 activeDashboardId
+  //     // 但這裡不知道刪的是哪個 id，所以改成在 handleDelete 裡傳
+  //   },
+  //   onError: (err) => toast.error(`删除失败: ${err.message}`),
+  // });
 
-  const handleDelete = (id: string, name: string) => {
-    if (confirm(`确定删除仪表板「${name}」？此操作不可撤销。`)) {
-      deleteMutation.mutate({ dashboardId: id });
-    }
-  };
+  // const handleDelete = (id: string, name: string) => {
+  //   if (confirm(`确定删除仪表板「${name}」？此操作不可撤销。`)) {
+  //     deleteMutation.mutate(
+  //       { dashboardId: id },
+  //       {
+  //         // 🔥 在 mutation 的 onSuccess 裡傳遞被刪的 id
+  //         onSuccess: () => {
+  //           onDelete(id);  // ← 通知父元件：「這個 id 被刪了」
+  //         },
+  //       },
+  //     );
+  //   }
+  // };
+
+const deleteMutation = api.adminDashboard.deleteDashboard.useMutation({
+  // 🔥 移掉頂層的 onSuccess，全部在 handleDelete 中控制
+  onError: (err) => toast.error(`删除失败: ${err.message}`),
+});
+
+const handleDelete = (id: string, name: string) => {
+  if (confirm(`确定删除仪表板「${name}」？此操作不可撤销。`)) {
+    deleteMutation.mutate(
+      { dashboardId: id },
+      {
+        onSuccess: () => {
+          toast.success('仪表板已删除');
+          // 🔥 只需要呼叫 onDelete，讓父元件統一管理 cache
+          onDelete(id);
+        },
+      },
+    );
+  }
+};
+
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -77,7 +109,6 @@ export function AdminDashboardSettings({
           </button>
         </div>
       ))}
-
       {/* 创建按钮 */}
       <button
         onClick={() => setShowCreateDialog(true)}
@@ -85,7 +116,6 @@ export function AdminDashboardSettings({
       >
         + 新建
       </button>
-
       {/* 新建对话框（简易） */}
       {showCreateDialog && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setShowCreateDialog(false)}>

@@ -7,20 +7,32 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { trpc } from "../../../../../trpc/client";
 
-// 1. 定義 Zod Schema (您 package.json 已經有安裝 zod)
-const formSchema = z.object({
+// ========== 1. 分開定義 Create / Update 的 Schema ==========
+
+const createSchema = z.object({
   name: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
   companyname: z.string().optional(),
   contactname: z.string().optional(),
-  // 👇 補上缺少的欄位
   customname: z.string().optional(),
   contactphone: z.string().optional(),
   companyaddress: z.string().optional(),
-  companyemail: z.string().optional(),
-  // 👇 password 在新增時為必填
-  password: z.string().min(1, "請輸入密碼"),
+  companyemail: z.string().email().optional().or(z.literal("")),
+  password: z.string().min(1, "請輸入密碼"), // 新增時必填
+});
+
+const updateSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
+  companyname: z.string().optional(),
+  contactname: z.string().optional(),
+  customname: z.string().optional(),
+  contactphone: z.string().optional(),
+  companyaddress: z.string().optional(),
+  companyemail: z.string().email().optional().or(z.literal("")),
+  password: z.string().optional(), // 編輯時可選，留空不修改
 });
 
 export default function CustomerForm({ customerId }: { customerId?: string }) {
@@ -37,7 +49,7 @@ export default function CustomerForm({ customerId }: { customerId?: string }) {
     onSuccess: () => {
       toast.success("客戶建立成功！");
       router.push("/admin/customer");
-      router.refresh(); // 刷新 Server Component 列表
+      router.refresh();
     },
     onError: (err) => toast.error(err.message),
   });
@@ -51,45 +63,61 @@ export default function CustomerForm({ customerId }: { customerId?: string }) {
     onError: (err) => toast.error(err.message),
   });
 
-  // 3. 原生表單提交處理 (React 19 / 標準 HTML)
-   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  // ========== 3. 表單提交處理（完整修正版） ==========
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    // 取得表單內所有 input 的值
+
     const formData = new FormData(e.currentTarget);
     const rawData = Object.fromEntries(formData.entries());
 
-    // 使用 Zod 驗證資料
-    const parsed = formSchema.safeParse(rawData);
-    
-    if (!parsed.success) {
-      // 改用 .issues 來取得錯誤陣列，並加上可選串連 (?.) 避免意外 crash
-      toast.error(parsed.error.issues[0]?.message || "表單驗證失敗");
-      return;
+    // 空字串轉 undefined
+    const cleanedData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rawData)) {
+      if (isEdit && key === "password" && value === "") {
+        continue;
+      }
+      cleanedData[key] = value === "" ? undefined : value;
     }
 
-    // 驗證成功，送出 Mutation
-    // 注意：因為 Zod schema 中我們用了 .optional()，有些值可能是空字串
-    // 我們可以在送出前確保空字串也被正確處理
+    // ⭐ 重點：分開驗證，型別安全
     if (isEdit) {
+      const parsed = updateSchema.safeParse(cleanedData);
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0]?.message || "表單驗證失敗");
+        return;
+      }
       updateMut.mutate({ id: customerId!, ...parsed.data });
     } else {
+      const parsed = createSchema.safeParse(cleanedData);
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0]?.message || "表單驗證失敗");
+        return;
+      }
       createMut.mutate(parsed.data);
     }
   };
+
 
   const isSubmitting = createMut.isPending || updateMut.isPending;
 
   // 如果是編輯模式且資料還在載入中
   if (isEdit && isFetching) {
-    return <Loader2 className="animate-spin text-gray-500 my-10 mx-auto" />;
+    return (
+      <div className="flex justify-center my-10">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+      </div>
+    );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-xl">
+      {/* Email */}
       <div>
-        <label className="block text-sm font-medium mb-1">Email </label>
-        <input 
+        <label className="block text-sm font-medium mb-1">
+          Email <span className="text-gray-400 text-xs">（選填）</span>
+        </label>
+        <input
           name="email"
           type="email"
           defaultValue={customerData?.email || ""}
@@ -97,45 +125,73 @@ export default function CustomerForm({ customerId }: { customerId?: string }) {
           disabled={isSubmitting}
         />
       </div>
+
+      {/* Name */}
       <div>
-        <label className="block text-sm font-medium mb-1">Name(會當作帳號)</label>
-        <input 
+        <label className="block text-sm font-medium mb-1">
+          Name <span className="text-gray-400 text-xs">（會當作帳號，選填）</span>
+        </label>
+        <input
           name="name"
           defaultValue={customerData?.name || ""}
-          className="w-full border rounded p-2" 
+          className="w-full border rounded p-2"
           disabled={isSubmitting}
         />
       </div>
+
+      {/* Company Name */}
       <div>
         <label className="block text-sm font-medium mb-1">Company Name</label>
-        <input 
+        <input
           name="companyname"
           defaultValue={customerData?.companyname || ""}
-          className="w-full border rounded p-2" 
+          className="w-full border rounded p-2"
           disabled={isSubmitting}
         />
       </div>
+
+      {/* Contact Name + Phone 並排 */}
       <div className="flex gap-4">
         <div className="flex-1">
           <label className="block text-sm font-medium mb-1">Contact Name</label>
-          <input 
+          <input
             name="contactname"
             defaultValue={customerData?.contactname || ""}
-            className="w-full border rounded p-2" 
+            className="w-full border rounded p-2"
             disabled={isSubmitting}
           />
         </div>
         <div className="flex-1">
           <label className="block text-sm font-medium mb-1">Phone</label>
-          <input 
+          <input
             name="phone"
             defaultValue={customerData?.phone || ""}
-            className="w-full border rounded p-2" 
+            className="w-full border rounded p-2"
             disabled={isSubmitting}
           />
         </div>
       </div>
 
+      {/* ⭐【修正重點】新增密碼欄位 */}
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          密碼
+          {isEdit && (
+            <span className="text-gray-400 text-xs font-normal ml-1">
+              （留空則不修改）
+            </span>
+          )}
+        </label>
+        <input
+          name="password"
+          type="password"
+          className="w-full border rounded p-2"
+          disabled={isSubmitting}
+          placeholder={isEdit ? "留空則不修改密碼" : "請輸入密碼"}
+        />
+      </div>
+
+      {/* 按鈕區 */}
       <div className="pt-4 flex gap-2">
         <button
           type="button"

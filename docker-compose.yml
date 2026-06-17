@@ -1,0 +1,79 @@
+
+
+version: '3.8'
+
+services:
+  to_do_sys:
+    build: .
+    container_name: to_do_sys_container
+    restart: always
+    ports:
+      - "3002:3001"
+    environment:
+      DATABASE_URL: "postgresql://postgres:1234@db:5432/to_do_sys?schema=public"
+    # 啟動前先等 db 就緒、執行 migrate、再啟動 server
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 3 &&
+        npx prisma generate &&
+        npx prisma db push &&
+        echo 'Database ready, starting app...' &&
+        npm start -- -p 3001
+      "
+    depends_on:
+      - db
+    networks:
+      - web_network
+
+  db:
+    image: postgres:15
+    container_name: new_postgres_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "1234"
+      POSTGRES_DB: to_do_sys
+    ports:
+      - "5432:5432"
+    volumes:
+      - new_db_data:/var/lib/postgresql/data
+    networks:
+      - web_network 
+
+  migrate:
+    build: .
+    container_name: new_migrate_container
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: "postgresql://postgres:1234@db:5432/to_do_sys?schema=public"
+    command: sh -c "npx prisma generate && npx prisma db push"  
+    networks:
+      - web_network 
+    restart: "no"  
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: todosys_npm
+    restart: always
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+    networks:
+      - web_network
+
+
+
+networks:
+    web_network :
+      external: true
+
+
+volumes:
+  new_db_data:
+  npm_data:          
+  npm_letsencrypt:   

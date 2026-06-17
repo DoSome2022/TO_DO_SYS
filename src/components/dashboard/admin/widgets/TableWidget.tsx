@@ -9,10 +9,18 @@ interface TableRow {
   [key: string]: string | number;
 }
 
+// interface TableWidgetProps {
+//   data: { columns: TableColumn[]; rows: TableRow[] } | null;
+//   metricConfig: MetricDefinition;
+// }
+
 interface TableWidgetProps {
-  data: { columns: TableColumn[]; rows: TableRow[] } | null;
-  metricConfig: MetricDefinition;
+  data: {
+    columns: { key: string; label: string }[];
+    rows: Record<string, any>[];
+  } | null;
 }
+
 
 export function TableWidget({ data }: TableWidgetProps) {
   if (!data || data.rows.length === 0) {

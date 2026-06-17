@@ -1,18 +1,21 @@
-
-
-
 // app/projects/page.tsx
-import { db } from "@/app/lib/prisma"; // 直接在 Server Component 讀取 DB
-
+import { db } from "@/app/lib/prisma";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import ProjectCard from "./[projectId]/_components/ProjectCard";
 
-export const dynamic = 'force-dynamic'; // 確保每次都讀到最新資料
+export const dynamic = 'force-dynamic';
 
 export default async function ProjectsPage() {
-  // 取得所有專案 (實際開發時通常會根據登入者 ID 篩選)
+  // ✅ 包含 phases，才能算真實進度
   const projects = await db.project.findMany({
+    include: {
+      phases: {
+        select: {
+          status: true, // 只需要 status 來算比例
+        },
+      },
+    },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -40,20 +43,28 @@ export default async function ProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              id={project.id}
-              name={project.title}
-              description={project.description}
-              // 這裡假設 DB 還沒算進度，暫時給隨機或預設值，實際專案可依 Phase 完成比例計算
-              progress={Math.floor(Math.random() * 100)} 
-              dueDate={project.endDate}
-            />
-          ))}
+          {projects.map((project) => {
+            // ✅ 根據 phases 的完成度計算真實進度
+            const phases = project.phases;
+            const totalPhases = phases.length;
+            const completedPhases = phases.filter((p) => p.status === "COMPLETED").length;
+            const progress = totalPhases > 0
+              ? Math.round((completedPhases / totalPhases) * 100)
+              : 0;
+
+            return (
+              <ProjectCard
+                key={project.id}
+                id={project.id}
+                name={project.title}
+                description={project.description}
+                progress={progress} // ✅ 現在是根據資料庫算出來的！
+                dueDate={project.endDate}
+              />
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
-

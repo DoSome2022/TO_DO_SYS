@@ -11,9 +11,11 @@ interface ListWidgetProps {
 }
 
 export function ListWidget({ data }: ListWidgetProps) {
-  if (!data || data.length === 0) {
-    return <div className="text-gray-400 text-sm p-2">暂无列表数据</div>;
+  // 🔥 改為 Array.isArray 檢查，確保 data 真的是陣列
+  if (!Array.isArray(data) || data.length === 0) {
+    return <div className="text-gray-400 text-sm p-2">暫無列表數據</div>;
   }
+  
   return (
     <ul className="divide-y divide-gray-100">
       {data.map((item, idx) => (

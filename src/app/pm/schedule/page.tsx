@@ -1,4 +1,6 @@
 // app/pm/schedule/page.tsx
+export const dynamic = "force-dynamic";
+
 import { db } from "@/app/lib/prisma";
 import WorkItemsViewer from "@/components/WorkItemsViewer";
 

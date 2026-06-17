@@ -136,6 +136,34 @@ export default function PhaseManager({ projectId }: { projectId: string }) {
     }
   };
 
+  // === 切換階段狀態 ===
+const toggleStatusMutation = trpc.phase.updatePhase.useMutation({
+  onSuccess: () => {
+    refetch();
+    toast.success("階段狀態已更新");
+  },
+  onError: (err) => {
+    toast.error(err.message || "更新失敗");
+  },
+});
+
+
+// === 切換階段完成狀態 ===
+const handleToggleStatus = (phaseId: string, currentStatus: string) => {
+  const newStatus = currentStatus === "COMPLETED" ? "IN_PROGRESS" : "COMPLETED";
+  const actionText = newStatus === "COMPLETED" ? "標記為完成" : "退回進行中";
+
+  if (newStatus === "IN_PROGRESS") {
+    // 退回進行中：直接執行，不彈窗
+    toggleStatusMutation.mutate({ id: phaseId, status: newStatus });
+  } else {
+    // 標記為完成：加上確認
+    if (!confirm(`確定要將此階段「標記為完成」嗎？\n\n完成後專案進度會跟著更新。`)) return;
+    toggleStatusMutation.mutate({ id: phaseId, status: newStatus });
+  }
+};
+
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
@@ -172,9 +200,25 @@ export default function PhaseManager({ projectId }: { projectId: string }) {
                 )}
                 <h3 className="font-semibold text-gray-800">{phase.name}</h3>
               </div>
-              <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
-                {phase.status || "IN_PROGRESS"}
-              </span>
+{/* 狀態按鈕：點擊可直接切換完成/進行中 */}
+            <button
+              onClick={() => handleToggleStatus(phase.id, phase.status)}
+              disabled={toggleStatusMutation.isPending}
+              className={`text-xs px-2 py-1 rounded-full font-medium transition-all border ${
+                phase.status === "COMPLETED"
+                  ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
+                  : "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200"
+              } disabled:opacity-50`}
+            >
+              {toggleStatusMutation.isPending ? (
+                <Loader2 className="w-3 h-3 animate-spin inline" />
+              ) : phase.status === "COMPLETED" ? (
+                "✅ 已完成"
+              ) : (
+                "⏳ 進行中"
+              )}
+            </button>
+
             </div>
 
             <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">

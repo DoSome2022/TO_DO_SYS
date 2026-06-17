@@ -120,8 +120,8 @@ export const hasPermission = (requiredCode: string) =>
         },
       },
     });
+const userPermCodes = userWithPosition?.position?.permissions.map((p: { code: string }) => p.code) ?? [];
 
-    const userPermCodes = userWithPosition?.position?.permissions.map((p) => p.code) ?? [];
 
     if (!userPermCodes.includes(requiredCode)) {
       throw new TRPCError({

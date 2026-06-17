@@ -1,5 +1,10 @@
 // middleware.ts
-import { auth } from "@/auth"; // 引入你設定的 auth.ts
+import { authConfig } from "@/auth.config";
+import NextAuth from "next-auth";
+
+
+// ✅ 先從 NextAuth 取出 auth
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   // req.auth 就是使用者的登入狀態 (session)

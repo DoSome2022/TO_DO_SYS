@@ -1,7 +1,3 @@
-
-// src/components/dashboard/admin/widgetGrid.tsx
-
-
 'use client';
 
 import GridLayout from 'react-grid-layout';
@@ -16,6 +12,8 @@ interface WidgetGridProps {
   widgets: WidgetWithLayout[];
   globalTimeRange: { start: Date; end: Date };
   onLayoutChange: (layout: Layout) => void;
+  // 🔥 新增：拖動結束時觸發
+  onDragStop: (layout: Layout) => void;
   onRemove: (widgetId: string) => void;
 }
 
@@ -23,6 +21,7 @@ export function WidgetGrid({
   widgets,
   globalTimeRange,
   onLayoutChange,
+  onDragStop,     // 🔥 接收
   onRemove,
 }: WidgetGridProps) {
   const layout: Layout = widgets.map((w) => ({
@@ -47,7 +46,6 @@ export function WidgetGrid({
     <GridLayout
       className="layout"
       layout={layout}
-      // ✅ 用 {...()} as any 繞過型別檢查
       {...({
         cols: 12,
         rowHeight: 100,
@@ -55,6 +53,8 @@ export function WidgetGrid({
       } as any)}
       draggableHandle=".drag-handle"
       onLayoutChange={onLayoutChange}
+      // 🔥 新增：只在拖動結束時觸發
+      onDragStop={(newLayout) => onDragStop(newLayout)}
     >
       {gridItems}
     </GridLayout>

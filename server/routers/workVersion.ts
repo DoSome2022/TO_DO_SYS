@@ -2,6 +2,7 @@
 import { db } from "@/app/lib/prisma";
 import { publicProcedure, router } from "../trpc";
 import z from "zod";
+import { format } from "date-fns";
 
 
 
@@ -11,18 +12,21 @@ export const WorkVersionRouter = router({
         .input(z.object({
             projectId: z.string(),
             userId: z.string(),
-            versionName: z.string(),
+            versionName: z.string().optional(),
             note: z.string().optional(),
             // 👇 直接改為接收「字串」即可，因為前端已經把檔案傳到 OSS 並拿到網址了
             contentUrl: z.string().optional(), 
         }))
         .mutation(async ({ input }) => {
+              // ⭐ 如果沒填版本名稱，自動產生一個
+    const versionName = input.versionName || `未命名版本 ${format(new Date(), "yyyy/MM/dd HH:mm")}`;
+
             // 直接將網址與其他資料一起寫入 PostgreSQL，非常乾淨！
             const newVersion = await db.workVersion.create({
                 data: {
                     projectId: input.projectId,
                     userId: input.userId,
-                    versionName: input.versionName,
+                    versionName,
                     note: input.note,
                     contentUrl: input.contentUrl, // ★ 存入前端傳過來的字串網址
                 },

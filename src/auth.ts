@@ -4,37 +4,32 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { db } from "@/app/lib/prisma" 
 import bcrypt from "bcryptjs"
-
-// ✅ 正確擴充 Session 類型 - 直接定義完整類型
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string
-      role: string
-      name?: string | null
-      email?: string | null
-      image?: string | null
-    }
-  }
+import { authConfig } from "./auth.config"
+// ✅ 正確擴充 Session 類型
+// declare module "next-auth" {
+//   interface Session {
+//     user: {
+//       id: string
+//       role: string
+//       name?: string | null
+//       email?: string | null
+//       image?: string | null
+//     }
+//   }
   
-  interface User {
-    role: string
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string
-    role: string
-  }
-}
-
+//   interface User {
+//     role: string
+//   }
+// }
+// declare module "next-auth/jwt" {
+//   interface JWT {
+//     id: string
+//     role: string
+//   }
+// }
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(db),
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/auth/login",
-  },
   providers: [
     // --- 1. 員工登入 (Staff) ---
     CredentialsProvider({
@@ -46,18 +41,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.name || !credentials?.password) return null;
-
         const user = await db.user.findUnique({
           where: { name: credentials.name as string }
         });
-
         if (!user || !user.password) return null;
-
         const passwordsMatch = await bcrypt.compare(
           credentials.password as string,
           user.password
         );
-
         if (passwordsMatch) {
           return { 
             id: user.id, 
@@ -69,7 +60,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return null;
       }
     }),
-
     // --- 2. 客人登入 (Customer) ---
     CredentialsProvider({
       id: "customer-login",
@@ -80,18 +70,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.name || !credentials?.password) return null;
-
         const customer = await db.customer.findFirst({
           where: { name: credentials.name as string }
         });
-
         if (!customer || !customer.password) return null;
-
         const passwordsMatch = await bcrypt.compare(
           credentials.password as string,
           customer.password
         );
-
         if (passwordsMatch) {
           return { 
             id: customer.id, 
@@ -104,22 +90,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
     })
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = user.role;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-      }
-      return session;
-    }
-  }
 })
 
 // // auth.ts
