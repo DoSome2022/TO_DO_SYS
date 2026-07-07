@@ -18,6 +18,7 @@ import { ProjectRouter } from "./routers/project";
 import { projectCommentRouter } from "./routers/projectComment";
 import { projectMessageRouter } from "./routers/projectMessage";
 import { projectSalesChannelRouter } from "./routers/projectSalesChannel";
+import { purchaseRouter } from "./routers/purchase";
 import { quotationRouter } from "./routers/quotation";
 import { reviewRouter } from "./routers/review";
 
@@ -66,7 +67,8 @@ export const appRouter = router({
     projectSalesChannel:projectSalesChannelRouter,
     adminInvoice:adminInvoiceRouter,
     adminPayment:adminPaymentRouter,
-    adminQuotation:adminQuotationRouter
+    adminQuotation:adminQuotationRouter,
+    purchase: purchaseRouter,
 });
 
 export type AppRouter = typeof appRouter;

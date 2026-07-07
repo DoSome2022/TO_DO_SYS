@@ -38,6 +38,7 @@ model User {
   ProjectComment    ProjectComment[]
   Comments    Comment[]
   projectMessages ProjectMessage[]  // ← 新增這行，與其他 message 放一起
+  Purchase Purchase[]
 
   usages    DeviceUsage[]
 
@@ -690,6 +691,7 @@ model Equipment {
   // 👇 請新增下面這幾行，讓 Equipment 知道它擁有哪些歷史紀錄
   loanItems          LoanItem[]          // 關聯到借用明細 (注意：不是直接連 Loan，是連 LoanItem)
   maintenanceRecords MaintenanceRecord[] // 關聯到維修紀錄
+  PurchaseItem PurchaseItem[]
   
   // 所有權與來源
   ownership    EquipmentOwnership @default(COMPANY_OWNED)
@@ -1441,4 +1443,73 @@ model Payment {
 enum SenderType {
   SALES
   CUSTOMER
+}
+
+
+// ==========================================
+// 採購記錄系統 (純購買記錄，對應設備)
+// ==========================================
+// 採購狀態
+enum PurchaseStatus {
+  DRAFT       // 草稿
+  PENDING     // 待審核
+  APPROVED    // 已核准
+  ORDERED     // 已下單
+  PARTIAL     // 部分到貨
+  COMPLETED   // 已完成（全部到貨）
+  CANCELLED   // 已取消
+}
+// 採購單主表
+model Purchase {
+  id              String          @id @default(cuid())
+  purchaseNo      String          @unique // 採購編號，例如 PO-2026-0001
+  // --- 基本資訊 ---
+  title           String          // 採購標題/名稱（例如："2026年7月攝影器材採購"）
+  supplier        String?         // 供應商/廠商名稱
+  supplierContact String?         // 供應商聯絡方式（電話/窗口）
+  
+  // --- 日期 ---
+  orderDate       DateTime        @default(now()) // 下單日期
+  expectedDate    DateTime?       // 預計到貨日
+  receivedDate    DateTime?       // 實際到貨日
+  // --- 財務 ---
+  totalAmount     Decimal         @default(0) // 採購總金額
+  status          PurchaseStatus  @default(DRAFT)
+  // --- 備註 ---
+  notes           String?         @db.Text
+  // --- 採購明細（一單多項）---
+  items           PurchaseItem[]
+  // --- 經手人 ---
+  createdById     String
+  createdBy       User            @relation(fields: [createdById], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  @@index([status])
+  @@index([orderDate])
+  @@index([createdById])
+  @@index([supplier])
+}
+// 採購明細表
+model PurchaseItem {
+  id              String          @id @default(cuid())
+  // --- 關聯到採購單 ---
+  purchaseId      String
+  purchase        Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  // --- 對應設備（可選，如果該設備已存在系統中）---
+  equipmentId     String?
+  equipment       Equipment?      @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  // --- 設備資訊（自由輸入，適用於設備尚未建立時）---
+  itemName        String          // 品名/設備名稱（例如："Sony A7 IV"）
+  brand           String?         // 品牌
+  model           String?         // 型號
+  specification   String?         // 規格（例如："含28-70mm kit鏡"）
+  // --- 數量與價格 ---
+  quantity        Int             @default(1)
+  unitPrice       Decimal         // 單價
+  subtotal        Decimal         // 小計 = quantity * unitPrice
+  // --- 到貨狀況（支援分批到貨）---
+  receivedQty     Int             @default(0)  // 已到貨數量
+  createdAt       DateTime        @default(now())
+  @@index([purchaseId])
+  @@index([equipmentId])
 }
