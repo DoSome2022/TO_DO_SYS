@@ -109,10 +109,10 @@ async function SalesStats() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                {/* <div className="text-2xl font-bold">{stat.value}</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {stat.description}
-                </p>
+                </p> */}
               </CardContent>
             </Card>
           );

@@ -114,7 +114,7 @@ import SalesStatsCards from "./SalesStatsCards";
 import SalesQuotationsList from "./SalesQuotationsList";
 import SalesProjectsList from "./SalesProjectsList";
 import SalesCustomersList from "./SalesCustomersList";
-import SalesPurchasesList from "./SalesPurchasesList";    // ← 🆕 新增
+
 import CreateQuotationDialog from "./CreateQuotationDialog";
 import CreatePurchaseDialog from "./CreatePurchaseDialog"; // ← 🆕 新增
 import QuickActions from "./QuickActions";
@@ -213,9 +213,7 @@ export default function SalesDashboard() {
           </TabsContent>
 
           {/* ⬇️ 🆕 採購記錄 Tab */}
-          <TabsContent value="purchases">
-            <SalesPurchasesList />
-          </TabsContent>
+
         </Tabs>
       </div>
 

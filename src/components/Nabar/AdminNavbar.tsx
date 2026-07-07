@@ -18,6 +18,7 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
     { label: "項目資料", href: "/admin/projects" },
     { label: "對話(SALES)", href: "/admin/sales_chat" },
     { label: "💰 財務管理", href: "/admin/finance" },
+    { label: "採購", href: "/sales/purchases" },
   ],
   SALES: [
     { label: "銷售看板", href: "/dashboard" },
@@ -26,6 +27,7 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
     { label: "專案檢視", href: "/sales/projects" },
     { label: "對話(ADMIN)", href: "/sales/project_chat" },
     { label: "對話(客人)", href: "/sales/conversations" },
+    { label: "採購", href: "/sales/purchases" },
   ],
   PM: [
     { label: "專案看板", href: "/dashboard" },

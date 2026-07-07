@@ -13,13 +13,21 @@ export type PurchaseStatus =
   | "COMPLETED" 
   | "CANCELLED";
 // ---------- 查詢 hooks ----------
-/** 採購列表（支援篩選） */
-export function usePurchaseList(params?: {
-  status?: PurchaseStatus;     // ← ✅ 改為精確型別
-  search?: string;
-  page?: number;
-  pageSize?: number;
-}) {
+
+
+
+/** 採購列表 — 支援 initialData（用於 Server Component 預填） */
+export function usePurchaseList(
+  params?: {
+    status?: PurchaseStatus;
+    search?: string;
+    page?: number;
+    pageSize?: number;
+  },
+  options?: {
+    initialData?: any; // ← 🆕 從 Server Component 傳入的初始資料
+  }
+) {
   return api.purchase.list.useQuery(
     {
       status: params?.status,
@@ -29,12 +37,10 @@ export function usePurchaseList(params?: {
     },
     {
       staleTime: 1000 * 30,
+      initialData: options?.initialData, // ← ✅ React Query 會用這個當初始值
     }
   );
 }
-
-
-
 
 
 
