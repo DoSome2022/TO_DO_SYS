@@ -47,7 +47,7 @@ export function QuotationListClient() {
         {/* 標題列與新增按鈕 */}
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">我的報價單</h2>
+            <h2 className="text-2xl font-bold tracking-tight">報價單</h2>
             <p className="text-muted-foreground mt-1">
               管理您所有專案的報價單，追蹤每個案件的進度
             </p>
@@ -68,7 +68,7 @@ export function QuotationListClient() {
             >
               全部 ({statusCounts.ALL})
             </TabsTrigger>
-            <TabsTrigger 
+            {/* <TabsTrigger 
               value="DRAFT"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
@@ -79,7 +79,7 @@ export function QuotationListClient() {
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               交涉中 ({statusCounts.NEGOTIATING})
-            </TabsTrigger>
+            </TabsTrigger> */}
             <TabsTrigger 
               value="WON"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"

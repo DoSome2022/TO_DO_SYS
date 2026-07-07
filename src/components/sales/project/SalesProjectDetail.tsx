@@ -80,33 +80,7 @@ export default function SalesProjectDetail({ project, onClose }: SalesProjectDet
           </div>
         </div>
 
-        {/* 專案執行階段 (Sales 用來監控 PM 用的) */}
-        <div>
-          <h3 className="text-[14px] font-semibold text-slate-800 mb-4">專案執行階段 (由 PM 維護)</h3>
-          
-          <div className="space-y-0 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
-            {/* 這裡模擬專案階段 (ProjectPhase)，實務上替換為 project.phases.map(...) */}
-            {[
-              { name: "需求確認與開案", status: "completed", date: "2024-04-01" },
-              { name: "設計與開發階段", status: "current", date: "進行中" },
-              { name: "客戶驗收與交付", status: "pending", date: "待啟動" }
-            ].map((phase, idx) => (
-              <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2
-                  ${phase.status === 'completed' ? 'bg-green-500' : phase.status === 'current' ? 'bg-[#005fb8] animate-pulse' : 'bg-slate-200'}
-                `}>
-                  {phase.status === 'completed' && <X className="hidden" />} {/* 佔位 */}
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-lg border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <h4 className={`font-bold text-[14px] ${phase.status === 'current' ? 'text-[#005fb8]' : 'text-slate-700'}`}>{phase.name}</h4>
-                  </div>
-                  <div className="text-[12px] text-slate-500">{phase.date}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+
 
       </div>
     </div>

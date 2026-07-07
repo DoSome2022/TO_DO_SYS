@@ -57,66 +57,46 @@ function QuotationListSkeleton() {
 // 統計資料 Server Component
 async function SalesStats() {
   try {
-    const stats = await api.quotation.getSalesStats();
+    // const stats = await api.quotation.getSalesStats();
 
     const statCards = [
-      {
-        title: '總報價單',
-        value: stats.quotationsCount,
-        icon: FileText,
-        description: '不含草稿',
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-      },
-      {
-        title: '贏單數量',
-        value: stats.wonQuotationsCount,
-        icon: CheckCircle,
-        description: `勝率 ${stats.winRate.toFixed(1)}%`,
-        color: 'text-green-600',
-        bgColor: 'bg-green-100 dark:bg-green-900/30',
-      },
-      {
-        title: '成交總額',
-        value: `$ ${stats.totalQuotationValue.toLocaleString()}`,
-        icon: DollarSign,
-        description: '已贏單總金額',
-        color: 'text-yellow-600',
-        bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
-      },
-      {
-        title: '進行中專案',
-        value: stats.activeProjectsCount,
-        icon: Clock,
-        description: `共 ${stats.projectsCount} 個專案`,
-        color: 'text-purple-600',
-        bgColor: 'bg-purple-100 dark:bg-purple-900/30',
-      },
+      // {
+      //   title: '總報價單',
+      //   value: stats.quotationsCount,
+      //   icon: FileText,
+      //   description: '不含草稿',
+      //   color: 'text-blue-600',
+      //   bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+      // },
+      // {
+      //   title: '贏單數量',
+      //   value: stats.wonQuotationsCount,
+      //   icon: CheckCircle,
+      //   description: `勝率 ${stats.winRate.toFixed(1)}%`,
+      //   color: 'text-green-600',
+      //   bgColor: 'bg-green-100 dark:bg-green-900/30',
+      // },
+      // {
+      //   title: '成交總額',
+      //   value: `$ ${stats.totalQuotationValue.toLocaleString()}`,
+      //   icon: DollarSign,
+      //   description: '已贏單總金額',
+      //   color: 'text-yellow-600',
+      //   bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+      // },
+      // {
+      //   title: '進行中專案',
+      //   value: stats.activeProjectsCount,
+      //   icon: Clock,
+      //   description: `共 ${stats.projectsCount} 個專案`,
+      //   color: 'text-purple-600',
+      //   bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+      // },
     ];
 
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <div className={`p-2 rounded-full ${stat.bgColor}`}>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {/* <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stat.description}
-                </p> */}
-              </CardContent>
-            </Card>
-          );
-        })}
+
       </div>
     );
   } catch (error) {
@@ -152,9 +132,7 @@ export default async function SalesQuotationsPage() {
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             報價單管理
           </h1>
-          <p className="text-muted-foreground mt-2">
-            管理您的報價單，追蹤銷售進度，提升成交率
-          </p>
+
         </div>
         
         {/* 統計資料區塊 */}
@@ -177,6 +155,6 @@ export default async function SalesQuotationsPage() {
 
 // Metadata
 export const metadata = {
-  title: '我的報價單 | 銷售管理系統',
+  title: '報價單 | 銷售管理系統',
   description: '管理您的所有報價單，追蹤銷售進度和成交狀況',
 };

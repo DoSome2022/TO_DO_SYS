@@ -131,7 +131,7 @@ export function CreateQuotationDialog({ open, onOpenChange, onSuccess }: CreateQ
           
           {/* 報價金額 */}
           <div className="space-y-2">
-            <Label htmlFor="customerPrice">報價金額 (NT$) *</Label>
+            <Label htmlFor="customerPrice">報價金額 (HK$) *</Label>
             <Input
               id="customerPrice"
               type="number"
@@ -149,7 +149,7 @@ export function CreateQuotationDialog({ open, onOpenChange, onSuccess }: CreateQ
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">預估總金額</p>
               <p className="text-2xl font-bold text-primary">
-                NT$ {customerPrice.toLocaleString()}
+                HK$ {customerPrice.toLocaleString()}
               </p>
             </div>
           )}

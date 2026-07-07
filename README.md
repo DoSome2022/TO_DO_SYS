@@ -173,7 +173,9 @@ salse   要新增一個頁面是一般查詢(對客人) --(明天試)  完成
 
 7/7/2026
 
-增加採購的crud done (測試了 完成) 在admin 加了採購
-     - sales 的報價單 詳細示能去
+增加採購的crud done (測試了 完成) 在admin 加了採購 (未試)
+     - sales 的報價單 詳細示能去 （改了）
+     - sales 的客人方看 報價單 （改了）
+     - sales 的報價單 加了 edit 但是有點細節要做 （要可以加減 小任務）/quotations
 加員工的地址(加刪除（不顯示)
 pm staff sales 加入客人管理

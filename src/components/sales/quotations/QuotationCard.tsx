@@ -44,7 +44,7 @@ export function QuotationCard({ quotation, onClick }: QuotationCardProps) {
               )}
             </div>
           </div>
-          <Badge variant={status.variant}>{status.label}</Badge>
+          {/* <Badge variant={status.variant}>{status.label}</Badge> */}
         </div>
       </CardHeader>
       

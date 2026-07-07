@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 // import { protectedProcedure, router, salesProcedure } from "../router";
-import { createQuotationSchema, updateQuotationStatusSchema } from "@/lib/schemas/quotation";
+import { createQuotationSchema, updateQuotationStatusSchema , updateQuotataionSchema } from "@/lib/schemas/quotation";
 import { protectedProcedure, publicProcedure, router, salesProcedure } from "../trpc";
 import { db } from "@/app/lib/prisma";
 
@@ -193,7 +193,7 @@ export const quotationRouter = router({
 
   // 更新報價單
   updateQuotation: salesProcedure
-    .input(updateQuotationStatusSchema)
+    .input(updateQuotataionSchema)
     .mutation(async ({ ctx, input }) => {
       const { quotationId, ...data } = input;
 
