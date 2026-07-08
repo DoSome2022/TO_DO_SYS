@@ -187,3 +187,4 @@ Quotation 加入修改 以及 版本更進
 去看quotation-system-analysis.md
 
 完成 - 第一步
+完成 - 第二步 (第一階完成)

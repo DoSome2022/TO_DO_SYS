@@ -4,15 +4,6 @@
 'use client';
 
 import { useState } from 'react';
-// 🆕 新增 Dialog 相關匯入
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +36,7 @@ import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { trpc } from '../../../../trpc/client';
+import QuotationItemManager from "./QuotationItemManager";
 
 interface QuotationDetailClientProps {
   quotationId: string;
@@ -338,6 +330,14 @@ export function QuotationDetailClient({ quotationId, onClose, onRefresh }: Quota
                   <FileText className="h-12 w-12 text-muted-foreground opacity-50" />
                 </div>
               </div>
+
+
+              {/* ⬇️ 🆕 在這裡加入 QuotationItemManager */}
+              <Separator />
+              <QuotationItemManager
+                quotationId={quotationId}
+                items={quotation.items || []}
+              />
 
               {(quotation.baseCost || quotation.agreedCost || quotation.pmBudget) && (
                 <>
