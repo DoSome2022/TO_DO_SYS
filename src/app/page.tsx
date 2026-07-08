@@ -22,6 +22,12 @@ export default async function HomePage() {
     take: 10,
   });
 
+    const cardProjects = publicProjects.map(project => ({
+    id: project.id,
+    title: project.title,
+    description: project.description,
+  }));
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50">
       {/* 英雄區塊 (Hero Section) */}
@@ -52,7 +58,7 @@ export default async function HomePage() {
 
       {/* 作品展示區 */}
        <section className="container mx-auto py-20 grid grid-cols-1 md:grid-cols-2 gap-8">
-        {publicProjects.map((project) => (
+        {cardProjects.map((project) => (
           <PortfolioCard 
             key={project.id} 
             project={project} 

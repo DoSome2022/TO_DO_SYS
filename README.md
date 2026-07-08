@@ -179,3 +179,9 @@ salse   要新增一個頁面是一般查詢(對客人) --(明天試)  完成
      - sales 的報價單 加了 edit 但是有點細節要做 （要可以加減 小任務）/quotations
 加員工的地址(加刪除（不顯示)
 pm staff sales 加入客人管理
+
+
+8/7/2026
+
+Quotation 加入修改 以及 版本更進 
+去看quotation-system-analysis.md
