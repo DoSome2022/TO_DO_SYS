@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 // import { protectedProcedure, router, salesProcedure } from "../router";
-import { createQuotationSchema, updateQuotationStatusSchema , updateQuotataionSchema, addItemSchema, updateItemSchema, removeItemSchema } from "@/lib/schemas/quotation";
+import { createQuotationSchema, updateQuotationStatusSchema , updateQuotataionSchema, addItemSchema, updateItemSchema, removeItemSchema, createVersionSchema, revertToVersionSchema } from "@/lib/schemas/quotation";
 import { protectedProcedure, publicProcedure, router, salesProcedure } from "../trpc";
 import { db } from "@/app/lib/prisma";
 import { updateQuotationTotal } from "@/lib/quotation.service";
+import { createVersionSnapshot, revertToVersion } from "@/lib/version.service";
 
 
 
@@ -865,6 +866,53 @@ removeItem: salesProcedure
 
     return { success: true };
   }),
+
+
+
+// 🆕 建立版本快照
+  createVersion: salesProcedure
+    .input(createVersionSchema)
+    .mutation(async ({ ctx, input }) => {
+      // 檢查報價單存在
+      const quotation = await ctx.db.quotation.findFirst({
+        where: { id: input.quotationId, salesId: ctx.session.user.id! },
+      });
+      if (!quotation) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "報價單不存在" });
+      }
+      const version = await createVersionSnapshot(
+        input.quotationId,
+        input.changeLog
+      );
+      return { success: true, version };
+    }),
+  // 🆕 取得版本歷史
+  getVersions: salesProcedure
+    .input(z.object({ quotationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const versions = await ctx.db.quotationVersion.findMany({
+        where: { quotationId: input.quotationId },
+        orderBy: { versionNumber: "desc" },
+      });
+      return versions;
+    }),
+  // 🆕 回滾到指定版本
+  revertToVersion: salesProcedure
+    .input(revertToVersionSchema)
+    .mutation(async ({ ctx, input }) => {
+      const quotation = await ctx.db.quotation.findFirst({
+        where: { id: input.quotationId, salesId: ctx.session.user.id! },
+      });
+      if (!quotation) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "報價單不存在" });
+      }
+      const version = await revertToVersion(
+        input.quotationId,
+        input.targetVersionId,
+        input.changeLog
+      );
+      return { success: true, version };
+    }),
 
 
 });
