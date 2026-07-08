@@ -47,3 +47,21 @@ export const removeItemSchema = z.object({
   itemId: z.string(),
   quotationId: z.string(),
 });
+
+
+// ==========================================
+// 🆕 版本管理 Schema（第二階段）
+// ==========================================
+
+// 建立新版本
+export const createVersionSchema = z.object({
+  quotationId: z.string(),
+  changeLog: z.string().optional(),
+});
+
+// 回滾到指定版本
+export const revertToVersionSchema = z.object({
+  quotationId: z.string(),
+  targetVersionId: z.string(),
+  changeLog: z.string().optional(),
+});
