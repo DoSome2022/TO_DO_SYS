@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 // import { protectedProcedure, router, salesProcedure } from "../router";
-import { createQuotationSchema, updateQuotationStatusSchema , updateQuotataionSchema } from "@/lib/schemas/quotation";
+import { createQuotationSchema, updateQuotationStatusSchema , updateQuotataionSchema, addItemSchema, updateItemSchema, removeItemSchema } from "@/lib/schemas/quotation";
 import { protectedProcedure, publicProcedure, router, salesProcedure } from "../trpc";
 import { db } from "@/app/lib/prisma";
+import { updateQuotationTotal } from "@/lib/quotation.service";
 
 
 
@@ -201,8 +202,7 @@ export const quotationRouter = router({
       const existing = await ctx.db.quotation.findFirst({
         where: { id: quotationId, salesId: ctx.session.user.id! },
       });
-
-      if (!existing) {
+     if (!existing) {
         throw new TRPCError({ code: "NOT_FOUND", message: "報價單不存在或無權限修改" });
       }
 
@@ -649,6 +649,10 @@ getSalesCustomers: protectedProcedure
         },
       });
     }),
+
+
+
+    
   // 獲取報價單詳細資料
   getQuotationDetail: publicProcedure
     .input(z.object({
@@ -786,6 +790,81 @@ getSalesCustomers: protectedProcedure
       return newVersion;
     }),
 
+// 🆕 新增項目到報價單
+addItem: salesProcedure
+  .input(addItemSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { quotationId, ...itemData } = input;
+    const subtotal = itemData.quantity * itemData.unitPrice;
+
+    const item = await ctx.db.quotationItem.create({
+      data: {
+        quotationId,
+        serviceId: itemData.serviceId,
+        customName: itemData.customName,
+        quantity: itemData.quantity,
+        unitPrice: itemData.unitPrice,
+        subtotal,
+      },
+    });
+
+    // ✅ 只傳一個參數
+    await updateQuotationTotal(quotationId);
+
+    return { success: true, item };
+  }),
+
+// 🆕 更新報價項目
+updateItem: salesProcedure
+  .input(updateItemSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { itemId, ...data } = input;
+
+    const existing = await ctx.db.quotationItem.findUnique({
+      where: { id: itemId },
+      include: { quotation: true },
+    });
+
+    if (!existing) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: '項目不存在' });
+    }
+
+    const quantity = data.quantity ?? existing.quantity;
+    const unitPrice = data.unitPrice ?? Number(existing.unitPrice);
+    const subtotal = quantity * unitPrice;
+
+    const item = await ctx.db.quotationItem.update({
+      where: { id: itemId },
+      data: { ...data, subtotal },
+    });
+
+    // ✅ 只傳一個參數
+    await updateQuotationTotal(existing.quotationId);
+
+    return { success: true, item };
+  }),
+
+// 🆕 刪除報價項目
+removeItem: salesProcedure
+  .input(removeItemSchema)
+  .mutation(async ({ ctx, input }) => {
+    const existing = await ctx.db.quotationItem.findUnique({
+      where: { id: input.itemId },
+    });
+
+    if (!existing) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: '項目不存在' });
+    }
+
+    await ctx.db.quotationItem.delete({
+      where: { id: input.itemId },
+    });
+
+    // ✅ 只傳一個參數
+    await updateQuotationTotal(input.quotationId);
+
+    return { success: true };
+  }),
 
 
 });
