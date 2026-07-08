@@ -6,6 +6,7 @@ import { protectedProcedure, publicProcedure, router, salesProcedure } from "../
 import { db } from "@/app/lib/prisma";
 import { updateQuotationTotal } from "@/lib/quotation.service";
 import { createVersionSnapshot, revertToVersion } from "@/lib/version.service";
+import { createWorkItemFromNewQuotationItem, markWorkItemAsSuspended, syncQuotationItemsToWorkItems } from "@/lib/quotation-sync.service";
 
 
 
@@ -220,6 +221,7 @@ export const quotationRouter = router({
     }),
 
   // 更新報價單狀態
+  // 更新報價單狀態
   updateQuotationStatus: salesProcedure
     .input(updateQuotationStatusSchema)
     .mutation(async ({ ctx, input }) => {
@@ -227,17 +229,19 @@ export const quotationRouter = router({
 
       const existing = await ctx.db.quotation.findFirst({
         where: { id: quotationId, salesId: ctx.session.user.id! },
-        include: { project: true },
+        include: { 
+          project: true,
+          items: true,  // 🆕 需要 items 來建立 WorkItem
+        },
       });
 
       if (!existing) {
         throw new TRPCError({ code: "NOT_FOUND", message: "報價單不存在或無權限修改" });
       }
 
-      // 如果狀態改為 WON，可以選擇自動建立專案
+      // 如果狀態改為 WON，自動建立專案
       let projectId = existing.projectId;
       if (status === "WON" && !existing.projectId) {
-        // 可選：自動建立關聯專案
         const project = await ctx.db.project.create({
           data: {
             title: existing.title,
@@ -249,6 +253,11 @@ export const quotationRouter = router({
           },
         });
         projectId = project.id;
+
+        // 🆕 自動將報價單項目轉為 WorkItem
+        if (existing.items.length > 0) {
+          await syncQuotationItemsToWorkItems(existing.id, project.id);
+        }
       }
 
       const quotation = await ctx.db.quotation.update({
@@ -259,12 +268,17 @@ export const quotationRouter = router({
         },
         include: {
           customer: true,
-          project: true,
+          project: {
+            include: {
+              workItems: true,  // 🆕 包含 WorkItem 讓前端知道
+            },
+          },
         },
       });
 
       return { success: true, quotation };
     }),
+
 
   // 刪除報價單 (草稿狀態才能刪除)
   deleteQuotation: salesProcedure
@@ -792,28 +806,42 @@ getSalesCustomers: protectedProcedure
     }),
 
 // 🆕 新增項目到報價單
-addItem: salesProcedure
-  .input(addItemSchema)
-  .mutation(async ({ ctx, input }) => {
-    const { quotationId, ...itemData } = input;
-    const subtotal = itemData.quantity * itemData.unitPrice;
+  addItem: salesProcedure
+    .input(addItemSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { quotationId, ...itemData } = input;
+      const subtotal = itemData.quantity * itemData.unitPrice;
 
-    const item = await ctx.db.quotationItem.create({
-      data: {
-        quotationId,
-        serviceId: itemData.serviceId,
-        customName: itemData.customName,
-        quantity: itemData.quantity,
-        unitPrice: itemData.unitPrice,
-        subtotal,
-      },
-    });
+      const item = await ctx.db.quotationItem.create({
+        data: {
+          quotationId,
+          serviceId: itemData.serviceId,
+          customName: itemData.customName,
+          quantity: itemData.quantity,
+          unitPrice: itemData.unitPrice,
+          subtotal,
+        },
+      });
 
-    // ✅ 只傳一個參數
-    await updateQuotationTotal(quotationId);
+      await updateQuotationTotal(quotationId);
 
-    return { success: true, item };
-  }),
+      // 🆕 如果報價單已轉成專案，同步新增 WorkItem
+      const quotation = await ctx.db.quotation.findUnique({
+        where: { id: quotationId },
+        select: { projectId: true, status: true },
+      });
+
+      if (quotation?.projectId && quotation.status === "CONVERTED") {
+        await createWorkItemFromNewQuotationItem(
+          item.id,
+          quotation.projectId,
+          itemData.customName
+        );
+      }
+
+      return { success: true, item };
+    }),
+
 
 // 🆕 更新報價項目
 updateItem: salesProcedure
@@ -846,26 +874,32 @@ updateItem: salesProcedure
   }),
 
 // 🆕 刪除報價項目
-removeItem: salesProcedure
-  .input(removeItemSchema)
-  .mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db.quotationItem.findUnique({
-      where: { id: input.itemId },
-    });
+  removeItem: salesProcedure
+    .input(removeItemSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.quotationItem.findUnique({
+        where: { id: input.itemId },
+      });
 
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: '項目不存在' });
-    }
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "項目不存在" });
+      }
 
-    await ctx.db.quotationItem.delete({
-      where: { id: input.itemId },
-    });
+      // 🆕 先標記對應的 WorkItem 為暫停（如果有的話）
+      await markWorkItemAsSuspended(
+        input.itemId,
+        "⚠️ 因報價單修改而暫停，請PM確認"
+      );
 
-    // ✅ 只傳一個參數
-    await updateQuotationTotal(input.quotationId);
+      await ctx.db.quotationItem.delete({
+        where: { id: input.itemId },
+      });
 
-    return { success: true };
-  }),
+      await updateQuotationTotal(input.quotationId);
+
+      return { success: true };
+    }),
+
 
 
 

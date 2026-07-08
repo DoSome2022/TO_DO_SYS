@@ -1,3 +1,5 @@
+//src/components/WorkItemsViewer.tsx
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -60,6 +62,7 @@ import {
   ChevronDown,
   ChevronUp,
   DollarSign,
+  AlertTriangle,
 } from "lucide-react";
 
 import { trpc } from "../../trpc/client";
@@ -448,7 +451,28 @@ console.log("data:", workItems, "-- End --");
                   </div>
                 </div>
               )}
+
+
+                            {/* 🆕 顯示暫停原因 */}
+              {item.suspendReason && (
+                <div className="flex items-center gap-2 p-2 mx-4 mb-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md">
+                  <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
+                  <span className="text-xs text-orange-700 dark:text-orange-300">
+                    {item.suspendReason}
+                  </span>
+                </div>
+              )}
+              {/* 🆕 顯示來源標記 */}
+              {item.source === "QUOTATION" && !item.suspendReason && (
+                <div className="flex items-center gap-1 px-4 pb-3">
+                  <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">
+                    來自報價單
+                  </Badge>
+                </div>
+              )}
             </div>
+
+
           );
         })}
       </div>

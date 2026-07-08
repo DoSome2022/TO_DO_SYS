@@ -1,5 +1,6 @@
 // server/lib/version.service.ts
 import { db } from "@/app/lib/prisma";
+import { createWorkItemFromNewQuotationItem, markWorkItemAsSuspended } from "./quotation-sync.service";
 
 /**
  * 建立版本快照：把當前報價單內容凍結成一個版本
@@ -76,22 +77,18 @@ export async function createVersionSnapshot(
 /**
  * 回滾到指定版本
  */
+
 export async function revertToVersion(
   quotationId: string,
   targetVersionId: string,
   changeLog?: string
 ) {
-  // 1. 取得目標版本
   const targetVersion = await db.quotationVersion.findUnique({
     where: { id: targetVersionId },
   });
-
   if (!targetVersion) throw new Error("目標版本不存在");
-
-  // 2. 解析 snapshot
   const snapshot = targetVersion.snapshot as any;
-
-  // 3. 更新報價單主表內容（回滾）
+  // 1. 更新報價單主表
   await db.quotation.update({
     where: { id: quotationId },
     data: {
@@ -100,12 +97,29 @@ export async function revertToVersion(
       note: snapshot.note,
     },
   });
-
+  // 2. 檢查是否有專案關聯
+  const quotation = await db.quotation.findUnique({
+    where: { id: quotationId },
+    select: { projectId: true, status: true },
+  });
+  // 3. 🆕 如果是已轉專案的報價單，先標記現有 WorkItem 為暫停
+  if (quotation?.projectId) {
+    const existingItems = await db.quotationItem.findMany({
+      where: { quotationId },
+      select: { id: true },
+    });
+    for (const item of existingItems) {
+      await markWorkItemAsSuspended(
+        item.id,
+        "⚠️ 因報價單回滾版本而暫停，請PM確認"
+      );
+    }
+  }
   // 4. 刪除現有項目，重建為目標版本的項目
   await db.quotationItem.deleteMany({ where: { quotationId } });
-
+  const newItemIds: string[] = [];
   for (const item of snapshot.items) {
-    await db.quotationItem.create({
+    const newItem = await db.quotationItem.create({
       data: {
         quotationId,
         serviceId: item.serviceId,
@@ -115,9 +129,22 @@ export async function revertToVersion(
         subtotal: item.subtotal,
       },
     });
+    newItemIds.push(newItem.id);
   }
-
-  // 5. 重新計算總金額
+  // 5. 🆕 如果是已轉專案，為新項目建立 WorkItem
+  if (quotation?.projectId) {
+    const newItems = await db.quotationItem.findMany({
+      where: { quotationId },
+    });
+    for (const item of newItems) {
+      await createWorkItemFromNewQuotationItem(
+        item.id,
+        quotation.projectId,
+        item.customName || "未命名服務"
+      );
+    }
+  }
+  // 6. 重新計算總金額
   const items = await db.quotationItem.findMany({
     where: { quotationId },
     select: { subtotal: true },
@@ -130,12 +157,10 @@ export async function revertToVersion(
     where: { id: quotationId },
     data: { totalAmount },
   });
-
-  // 6. 建立新版本作為回滾後的記錄
+  // 7. 建立新版本
   const newVersion = await createVersionSnapshot(
     quotationId,
     changeLog || `回滾至第 ${targetVersion.versionNumber} 版`
   );
-
   return newVersion;
 }

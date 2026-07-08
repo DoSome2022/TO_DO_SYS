@@ -320,17 +320,29 @@ export function QuotationDetailClient({ quotationId, onClose, onRefresh }: Quota
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-sm text-muted-foreground">報價金額</p>
-                    <p className="text-3xl font-bold text-primary">
-                      $ {(quotation.customerPrice || 0).toLocaleString()}
-                    </p>
-                  </div>
-                  <FileText className="h-12 w-12 text-muted-foreground opacity-50" />
-                </div>
-              </div>
+<div className="p-4 bg-muted rounded-lg">
+  <div className="flex justify-between items-center">
+    <div>
+      <p className="text-sm text-muted-foreground">報價金額（客戶價）</p>
+      <p className="text-3xl font-bold text-primary">
+        $ {(quotation.customerPrice || 0).toLocaleString()}
+      </p>
+    </div>
+    <div className="text-right">
+      <p className="text-sm text-muted-foreground">項目加總</p>
+      <p className="text-xl font-semibold">
+        $ {Number(quotation.totalAmount || 0).toLocaleString()}
+      </p>
+      {/* 如果兩者有差異，顯示提示 */}
+      {Number(quotation.totalAmount) !== Number(quotation.customerPrice) && (
+        <p className="text-xs text-orange-500 mt-1">
+          與項目加總有差異
+        </p>
+      )}
+    </div>
+    <FileText className="h-12 w-12 text-muted-foreground opacity-50" />
+  </div>
+</div>
 
 
               {/* ⬇️ 🆕 在這裡加入 QuotationItemManager */}

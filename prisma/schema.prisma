@@ -405,6 +405,12 @@ equipmentLogs EquipmentLog[] // 任務中包含借用紀錄
   staffId     String?
   staff       User?     @relation(fields: [staffId], references: [id])
 
+    // ⬇️ 🆕 第三階段新增：報價單來源關聯
+  source                  String?   // "QUOTATION" | "MANUAL" | "TODO"
+  sourceQuotationItemId   String?   // 對應的 QuotationItem.id
+  suspendReason           String?   // 暫停原因（非 null 表示暫停中）
+
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
