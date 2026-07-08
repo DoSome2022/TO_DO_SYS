@@ -37,6 +37,7 @@ import { zhTW } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { trpc } from '../../../../trpc/client';
 import QuotationItemManager from "./QuotationItemManager";
+import VersionTimeline from './VersionTimeline';
 
 interface QuotationDetailClientProps {
   quotationId: string;
@@ -338,6 +339,13 @@ export function QuotationDetailClient({ quotationId, onClose, onRefresh }: Quota
                 quotationId={quotationId}
                 items={quotation.items || []}
               />
+
+                {/* ⬇️ 🆕 版本管理 */}
+  <Separator />
+  <VersionTimeline
+    quotationId={quotationId}
+    currentVersionId={quotation.currentVersionId}
+  />
 
               {(quotation.baseCost || quotation.agreedCost || quotation.pmBudget) && (
                 <>
