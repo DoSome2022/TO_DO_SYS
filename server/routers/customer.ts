@@ -17,10 +17,30 @@ export const customerRouter = router({
       return customer;
     }),
     
-  getAllCustomer: publicProcedure.query(async () => {
-    const customers = await db.customer.findMany();
-    return customers;
-  }),
+  getAllCustomer: publicProcedure
+    .input(
+      z
+        .object({
+          search: z.string().optional(),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      const where: any = {};
+      if (input?.search) {
+        const keyword = input.search;
+        where.OR = [
+          { name: { contains: keyword, mode: "insensitive" } },
+          { companyname: { contains: keyword, mode: "insensitive" } },
+          { email: { contains: keyword, mode: "insensitive" } },
+          { phone: { contains: keyword, mode: "insensitive" } },
+          { contactname: { contains: keyword, mode: "insensitive" } },
+          { companyaddress: { contains: keyword, mode: "insensitive" } },
+        ];
+      }
+      const customers = await db.customer.findMany({ where });
+      return customers;
+    }),
   
   createCustomer: publicProcedure
     .input(
@@ -61,6 +81,8 @@ export const customerRouter = router({
         contactname: z.string().optional(),
         contactphone: z.string().optional(),
         companyname: z.string().optional(),
+        companyaddress: z.string().optional(),
+        companyemail: z.string().email().optional(),
       })
     )
     .mutation(async ({ input }) => {

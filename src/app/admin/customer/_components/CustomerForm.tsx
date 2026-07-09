@@ -152,6 +152,29 @@ export default function CustomerForm({ customerId }: { customerId?: string }) {
         />
       </div>
 
+      <div>
+        <label className="block text-sm font-medium mb-1">公司地址</label>
+        <input
+          name="companyaddress"
+          defaultValue={customerData?.companyaddress || ""}
+          className="w-full border rounded p-2"
+          disabled={isSubmitting}
+          placeholder="公司地址（選填）"
+        />
+      </div>
+      {/* 公司 Email */}
+      <div>
+        <label className="block text-sm font-medium mb-1">公司 Email</label>
+        <input
+          name="companyemail"
+          type="email"
+          defaultValue={customerData?.companyemail || ""}
+          className="w-full border rounded p-2"
+          disabled={isSubmitting}
+          placeholder="company@example.com（選填）"
+        />
+      </div>
+
       {/* Contact Name + Phone 並排 */}
       <div className="flex gap-4">
         <div className="flex-1">
