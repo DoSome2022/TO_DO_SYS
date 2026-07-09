@@ -8,6 +8,7 @@ import { useSession, signOut } from "next-auth/react";
 // 定義每個角色的專屬選單
 const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
   ADMIN: [
+    { label: "個人資料", href: "/profile" },
     { label: "管理版", href: "/dashboard" },
     { label: "員工管理", href: "/admin/staff" },
     { label: "職位管理", href: "/admin/positions" },
@@ -22,6 +23,7 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
     { label: "設備借用", href: "/equipment" },
   ],
   SALES: [
+    { label: "個人資料", href: "/profile" },
     { label: "銷售看板", href: "/dashboard" },
     { label: "客戶列表", href: "/sales/customers" },
     { label: "報價管理", href: "/quotations" },
@@ -32,6 +34,7 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
     { label: "客戶管理", href: "/admin/customer" },
   ],
   PM: [
+    { label: "個人資料", href: "/profile" },
     { label: "專案看板", href: "/dashboard" },
     { label: "項目管理", href: "/projects" },
     { label: "記事版", href: "/pm/todos" },
@@ -39,6 +42,7 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
     { label: "客戶管理", href: "/admin/customer" },
   ],
   STAFF: [
+    { label: "個人資料", href: "/profile" },
     { label: "個人首頁", href: "/dashboard" },
     { label: "我的任務", href: "/dashboard/mytasks" },
     { label: "工作版本", href: "/dashboard/workversions" },

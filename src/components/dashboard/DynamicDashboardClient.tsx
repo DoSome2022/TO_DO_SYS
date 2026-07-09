@@ -116,7 +116,7 @@ export default function DynamicDashboardClient() {
 
       {/* 權限控制示範區 */}
       <div className="pt-8 border-t">
-        <h3 className="text-lg font-medium mb-4">權限控制示範</h3>
+        {/* <h3 className="text-lg font-medium mb-4">權限控制示範</h3> */}
         <div className="flex flex-wrap gap-3">
           {hasPermission("PROJECT_CREATE") && (
             <span className="px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm">可建立專案</span>

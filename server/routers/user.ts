@@ -1,8 +1,10 @@
 // server/routers/user.ts
-import { hasPermission, protectedProcedure, router } from "../trpc";
+import { hasPermission, protectedProcedure, publicProcedure, router } from "../trpc";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { db } from "@/app/lib/prisma";
+import { TRPCError } from "@trpc/server";  // ← 🆕 加入這行
+
 
 export const userRouter = router({
   // 取得目前登入者的完整資料（推薦前端最常用）
@@ -212,7 +214,117 @@ getPositionsForDropdown: protectedProcedure.query(async () => {
       };
     }),
 
-    
+    updateProfile: protectedProcedure
+    .input(
+      z.object({
+        email: z.string().email("請輸入有效的 Email").optional(),
+        currentPassword: z.string().optional(),
+        newPassword: z
+          .string()
+          .min(6, "新密碼至少 6 個字元")
+          .optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id!;
+      // 1️⃣ 取得目前使用者
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, password: true, name: true },
+      });
+      if (!user) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "使用者不存在" });
+      }
+      const updateData: any = {};
+      // 2️⃣ 如果要修改 Email
+      if (input.email !== undefined) {
+        // 檢查 Email 是否已被其他使用者使用
+        const existingUser = await ctx.db.user.findUnique({
+          where: { email: input.email },
+        });
+        if (existingUser && existingUser.id !== userId) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "此 Email 已被其他員工使用",
+          });
+        }
+        updateData.email = input.email;
+      }
+      // 3️⃣ 如果要修改密碼
+      if (input.newPassword) {
+        // 必須提供目前密碼
+        if (!input.currentPassword) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "修改密碼必須提供目前密碼",
+          });
+        }
+        // 驗證目前密碼
+        const isValid = await bcrypt.compare(
+          input.currentPassword,
+          user.password || ""
+        );
+        if (!isValid) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "目前密碼不正確",
+          });
+        }
+        // 加密新密碼
+        updateData.password = await bcrypt.hash(input.newPassword, 10);
+      }
+      // 4️⃣ 執行更新
+      const updated = await ctx.db.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      });
+      return {
+        success: true,
+        message: input.email
+          ? "Email 已更新"
+          : "密碼已更新",
+        user: updated,
+      };
+    }),
+  // ==========================================
+  // 🆕 用 Email 重置密碼（忘記密碼功能）
+  // ==========================================
+  resetPasswordByEmail: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email("請輸入有效的 Email"),
+        newPassword: z.string().min(6, "新密碼至少 6 個字元"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // 1️⃣ 找尋該 Email 的使用者
+      const user = await ctx.db.user.findUnique({
+        where: { email: input.email },
+        select: { id: true, email: true, name: true },
+      });
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "找不到此 Email 對應的員工帳號",
+        });
+      }
+      // 2️⃣ 更新密碼
+      const hashedPassword = await bcrypt.hash(input.newPassword, 10);
+      await ctx.db.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword },
+      });
+      return {
+        success: true,
+        message: "密碼已重設，請使用新密碼登入",
+      };
+    }),
 
 
 });
