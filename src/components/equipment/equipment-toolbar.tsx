@@ -139,7 +139,7 @@ export function EquipmentToolbar() {
                 </div>
 
                  <div>
-                  <label className="block text-sm font-medium mb-1">歸屬團隊</label>
+                  <label className="block text-sm font-medium mb-1">設備分類</label>
                   <input {...register("team")} className="w-full border p-2 rounded focus:ring-2 focus:ring-black/10 outline-none" placeholder="例如：攝影組" />
                 </div>
               </div>

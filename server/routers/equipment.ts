@@ -330,4 +330,190 @@ getById: protectedProcedure
       });
     }),
 
+
+    // ==========================================
+// 🆕 編輯設備
+// ==========================================
+update: protectedProcedure
+  .input(
+    z.object({
+      id: z.string(),
+      name: z.string().min(1, "名稱必填").optional(),
+      model: z.string().optional(),
+      serialNumber: z.string().optional(),
+      value: z.number().optional(),
+      notes: z.string().optional(),
+      team: z.string().optional(),
+      ownership: z.enum(["COMPANY_OWNED", "EXTERNAL_RENTAL"]).optional(),
+      supplierName: z.string().optional(),
+      supplierContact: z.string().optional(),
+      rentalDeadline: z.date().optional().nullable(),
+      billingType: z.nativeEnum(BillingType).optional(),
+      price: z.number().min(0).optional(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const { id, ...data } = input;
+    return ctx.db.equipment.update({
+      where: { id },
+      data,
+    });
+  }),
+// ==========================================
+// 🆕 報廢設備
+// ==========================================
+scrap: protectedProcedure
+  .input(
+    z.object({
+      id: z.string(),
+      scrapReason: z.string().min(1, "請填寫報廢原因"),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    // 檢查設備是否正在使用中
+    const activeLog = await ctx.db.equipmentLog.findFirst({
+      where: { equipmentId: input.id, returnedAt: null },
+    });
+    if (activeLog) {
+      throw new Error("設備正在使用中，無法報廢。請先歸還設備。");
+    }
+    return ctx.db.equipment.update({
+      where: { id: input.id },
+      data: {
+        status: "RETIRED",
+        notes: input.scrapReason, // 報廢原因寫入 notes
+      },
+    });
+  }),
+// ==========================================
+// 🆕 歸還設備（簡化版 — 給員工使用）
+// ==========================================
+staffCheckin: protectedProcedure
+  .input(
+    z.object({
+      equipmentId: z.string(),
+      notes: z.string().optional(),
+      condition: z.string().optional(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    return ctx.db.$transaction(async (tx) => {
+      // 找當前未歸還的借用記錄
+      const activeLog = await tx.equipmentLog.findFirst({
+        where: {
+          equipmentId: input.equipmentId,
+          returnedAt: null,
+          borrowedById: ctx.session.user.id, // 只能歸還自己借的
+        },
+        include: { equipment: true },
+      });
+      if (!activeLog) {
+        throw new Error("找不到您的借用記錄，或該設備並非由您借用");
+      }
+      const endTime = new Date();
+      // 計算費用（如果有計費）
+      const billingType = activeLog.equipment.billingType;
+      const price = Number(activeLog.equipment.price ?? 0);
+      let calculatedCost = 0;
+      const startTime = activeLog.usageStartTime ?? activeLog.borrowedAt;
+      if (billingType === "HOURLY") {
+        const hours = Math.ceil(
+          (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
+        );
+        calculatedCost = Math.max(1, hours) * price;
+      } else if (billingType === "DAILY") {
+        const days = Math.ceil(
+          (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        calculatedCost = Math.max(1, days) * price;
+      }
+      // 更新借用記錄
+      await tx.equipmentLog.update({
+        where: { id: activeLog.id },
+        data: {
+          returnedAt: endTime,
+          usageEndTime: endTime,
+          totalCost: calculatedCost,
+          notes: input.notes
+            ? `${activeLog.notes || ""}\n[歸還備註]: ${input.notes}`
+            : activeLog.notes,
+          condition: input.condition as any || undefined,
+        },
+      });
+      // 更新設備狀態為可用
+      await tx.equipment.update({
+        where: { id: input.equipmentId },
+        data: { status: "AVAILABLE" },
+      });
+      return { success: true, totalCost: calculatedCost };
+    });
+  }),
+// ==========================================
+// 🆕 取得設備使用記錄（history）
+// ==========================================
+getHistory: protectedProcedure
+  .input(z.object({ id: z.string() }))
+  .query(async ({ ctx, input }) => {
+    const equipment = await ctx.db.equipment.findUnique({
+      where: { id: input.id },
+      include: {
+        logs: {
+          orderBy: { borrowedAt: "desc" },
+          include: {
+            borrowedBy: { select: { id: true, name: true } },
+            issuedBy: { select: { id: true, name: true } },
+            receivedBy: { select: { id: true, name: true } },
+            project: { select: { id: true, title: true } },
+          },
+        },
+        maintenanceRecords: {
+          orderBy: { startDate: "desc" },
+        },
+        purchaseItems: {
+          include: { purchase: true },
+        },
+      },
+    });
+    if (!equipment) throw new Error("設備不存在");
+    // 整理成歷史時間軸格式
+    const history: any[] = [];
+    // 加入借用/歸還紀錄
+    for (const log of equipment.logs) {
+      history.push({
+        type: "BORROW",
+        date: log.borrowedAt,
+        description: `借出給 ${log.borrowedBy?.name || "外部人員"}${log.project ? `（專案：${log.project.title}）` : ""}`,
+        details: log,
+      });
+      if (log.returnedAt) {
+        history.push({
+          type: "RETURN",
+          date: log.returnedAt,
+          description: `歸還${log.condition ? `（狀況：${log.condition}）` : ""}`,
+          details: log,
+        });
+      }
+    }
+    // 加入維修紀錄
+    for (const maintenance of equipment.maintenanceRecords) {
+      history.push({
+        type: "MAINTENANCE",
+        date: maintenance.startDate,
+        description: `維修：${maintenance.description}（${maintenance.type}）`,
+        details: maintenance,
+      });
+      if (maintenance.endDate) {
+        history.push({
+          type: "MAINTENANCE_END",
+          date: maintenance.endDate,
+          description: `維修完成，費用 $${maintenance.cost}`,
+          details: maintenance,
+        });
+      }
+    }
+    // 按日期降序排序
+    history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return history;
+  }),
+
 });

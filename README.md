@@ -211,4 +211,15 @@ admin 把項目 成為 商品 時，不要用項目名來做商品名，要加�
 
 員工加入gmail 做 gmail set pw （要做員工的改pw, gmail） (完成)
 
+加入 edit 設備功能
+加入報廢設備功能
+加入最新版的設備清單 用PDF 匯出
+
+equipmentForHistory 看看有沒有這東西 這是該裝備的使用記錄 用甚麼時候用 甚麼時候還，甚麼時候壞了，更換了甚麼 甚麼時候要保養 等等
+
+
+員工自己借完該設備 ，沒有歸還設備鍵 我想這功能 放在兩個地方 第一 就在這裡的設備列表
+第二就是// /staff/todos/中的// /staff/stafftode/stafftodomanager
+// /staff/todos/
+
 裝備的crud
