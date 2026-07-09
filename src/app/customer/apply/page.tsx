@@ -1,5 +1,7 @@
-"use client";
 // app/customer/apply/page.tsx (Client Component)
+
+"use client";
+
 
 import { Suspense } from "react";  // ← 加入這行
 import { useSearchParams, useRouter } from "next/navigation";
@@ -18,10 +20,15 @@ function ApplicationFormContent() {
   const router = useRouter();
   const referenceId = searchParams.get("referenceId");
 
-  const { data: referenceData } = trpc.project.getProjectWithQuote.useQuery(
-    { projectId: referenceId as string },
-    { enabled: !!referenceId }
-  );
+  // const { data: referenceData } = trpc.project.getProjectWithQuote.useQuery(
+  //   { projectId: referenceId as string },
+  //   { enabled: !!referenceId }
+  // );
+
+const { data: product } = trpc.project.getPublicProducts.useQuery(undefined, {
+  enabled: !!referenceId,
+  select: (products) => products.find((p) => p.id === referenceId),
+});
 
   const form = useForm<ApplicationFormData>();
 
@@ -47,18 +54,18 @@ function ApplicationFormContent() {
     <div className="max-w-2xl mx-auto p-8 bg-neutral-900 border border-neutral-800 rounded-lg">
       <h2 className="text-2xl text-amber-500 mb-6">發起合作申請</h2>
 
-      {referenceData && (
+      {product && (
         <div className="mb-6 p-4 bg-neutral-950 border border-neutral-700 rounded text-sm text-neutral-400">
           <p>
             您參考的作品：
-            <span className="text-white">{referenceData.title}</span>
+            <span className="text-white">{product.productName}</span>
           </p>
 
-          {referenceData.quotation?.customerPrice && (
+          {product.referencePrice && (
             <p>
               此類專案歷史預算區間：
               <span className="text-amber-400">
-                ${Number(referenceData.quotation.customerPrice).toLocaleString()}
+                ${Number(product.referencePrice).toLocaleString()}
               </span>{" "}
               起
             </p>
