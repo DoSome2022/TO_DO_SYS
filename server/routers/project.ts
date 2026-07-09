@@ -410,6 +410,106 @@ getMyProjects: protectedProcedure.query(async ({ ctx }) => {
 }),
 
 
+toggleArchive: protectedProcedure
+  .input(z.object({
+    projectId: z.string(),
+    isArchived: z.boolean(),
+  }))
+  .mutation(async ({ ctx, input }) => {
+    return ctx.db.project.update({
+      where: { id: input.projectId },
+      data: { isArchived: input.isArchived },
+    });
+  }),
+
+// ====================== 商品化相關 ======================
+
+// 更新商品資訊（上架/下架 + 填寫商品資料）
+updateProductInfo: protectedProcedure
+  .input(
+    z.object({
+      projectId: z.string(),
+      isPublicPortfolio: z.boolean(),
+      productName: z.string().optional(),
+      productDescription: z.string().optional(),
+      productCategory: z.string().optional(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const { projectId, ...data } = input;
+
+    // 如果設為公開上架，productName 為必填
+    if (data.isPublicPortfolio && !data.productName) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "上架商品時必須填寫商品名稱",
+      });
+    }
+
+    return ctx.db.project.update({
+      where: { id: projectId },
+      data,
+    });
+  }),
+
+// 取得所有商品分類（去重）
+getProductCategories: publicProcedure.query(async ({ ctx }) => {
+  const projects = await ctx.db.project.findMany({
+    where: { isPublicPortfolio: true },
+    select: { productCategory: true },
+    distinct: ["productCategory"],
+  });
+
+  return projects
+    .map((p) => p.productCategory)
+    .filter((c): c is string => c !== null);
+}),
+
+// 取得公開商品列表（前台用）
+getPublicProducts: publicProcedure
+  .input(
+    z
+      .object({
+        category: z.string().optional(),
+      })
+      .optional()
+  )
+  .query(async ({ ctx, input }) => {
+    const where: any = { isPublicPortfolio: true };
+
+    if (input?.category) {
+      where.productCategory = input.category;
+    }
+
+    const projects = await ctx.db.project.findMany({
+      where,
+      select: {
+        id: true,
+        productName: true,
+        productDescription: true,
+        productCategory: true,
+        description: true,
+        // 順便帶上報價金額作為參考預算
+        quotation: {
+          select: { customerPrice: true, status: true },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return projects.map((p) => ({
+      id: p.id,
+      productName: p.productName || p.description || "未命名商品",
+      productDescription: p.productDescription,
+      productCategory: p.productCategory,
+      // 只顯示 WON 的報價金額
+      referencePrice:
+        p.quotation?.status === "WON"
+          ? Number(p.quotation.customerPrice)
+          : null,
+    }));
+  }),
+
 
 
 

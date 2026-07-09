@@ -255,9 +255,15 @@ model Project {
   
   // ★ 3. 實際完成時間 (用來對比 endDate 看有沒有 delay)
   completedAt DateTime? 
+  productName        String?   // 商品名稱（不同於專案名稱，用於前台展示）
+  productDescription String?   // 商品描述/細節說明（用於前台展示）
+  productCategory    String?   // 商品分類（例如：MV製作、商業攝影、活動紀錄、形象影片）
   isPublicPortfolio    Boolean @default(false)
   // ★ 4. 優先級 (解決你的問題二：決定快慢)
   priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+
+  // 🆕 新增：隱藏專案（非刪除，只是歸檔不顯示）
+  isArchived  Boolean  @default(false)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

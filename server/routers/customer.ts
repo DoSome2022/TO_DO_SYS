@@ -1,3 +1,4 @@
+// server/routers/customer.ts
 import { db } from "@/app/lib/prisma";
 import { publicProcedure, router, 
     protectedProcedure 

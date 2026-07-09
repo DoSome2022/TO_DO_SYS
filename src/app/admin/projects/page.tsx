@@ -1,3 +1,4 @@
+// src/app/admin/projects/page.tsx
 "use client";
 
 import { AdminProjectForm } from "@/components/project/adminprojectForm";
