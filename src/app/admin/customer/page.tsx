@@ -1,3 +1,5 @@
+//src/app/admin/customer/page.tsx
+
 import Link from "next/link";
 import CustomerList from "./_components/CustomerList";
 

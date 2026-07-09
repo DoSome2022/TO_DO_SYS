@@ -1,3 +1,5 @@
+// src/app/admin/customer/_components/CustomerList.tsx
+
 "use client";
 
 

@@ -19,27 +19,32 @@ const ROLE_NAV_CONFIG: Record<string, { label: string; href: string }[]> = {
     { label: "對話(SALES)", href: "/admin/sales_chat" },
     { label: "💰 財務管理", href: "/admin/finance" },
     { label: "採購", href: "/sales/purchases" },
+    { label: "設備借用", href: "/equipment" },
   ],
   SALES: [
     { label: "銷售看板", href: "/dashboard" },
-    { label: "客戶管理", href: "/sales/customers" },
+    { label: "客戶列表", href: "/sales/customers" },
     { label: "報價管理", href: "/quotations" },
     { label: "專案檢視", href: "/sales/projects" },
     { label: "對話(ADMIN)", href: "/sales/project_chat" },
     { label: "對話(客人)", href: "/sales/conversations" },
     { label: "採購", href: "/sales/purchases" },
+    { label: "客戶管理", href: "/admin/customer" },
   ],
   PM: [
     { label: "專案看板", href: "/dashboard" },
     { label: "項目管理", href: "/projects" },
     { label: "記事版", href: "/pm/todos" },
     { label: "設備借用", href: "/equipment" },
+    { label: "客戶管理", href: "/admin/customer" },
   ],
   STAFF: [
     { label: "個人首頁", href: "/dashboard" },
     { label: "我的任務", href: "/dashboard/mytasks" },
     { label: "工作版本", href: "/dashboard/workversions" },
     { label: "記事版", href: "/staff/todos" },
+    { label: "設備借用", href: "/equipment" },
+    { label: "客戶管理", href: "/admin/customer" },
   ],
 };
 

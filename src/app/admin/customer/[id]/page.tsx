@@ -1,3 +1,4 @@
+// src/app/admin/customer/[id]/page.tsx
 import CustomerForm from "../_components/CustomerForm";
 
 // Next.js 16 寫法：params 是 Promise

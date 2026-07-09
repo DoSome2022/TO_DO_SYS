@@ -1,3 +1,5 @@
+//src/app/admin/customer/_components/CustomerForm.tsx
+
 "use client";
 
 import { useRouter } from "next/navigation";
