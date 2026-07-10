@@ -52,26 +52,26 @@ export default function InvoiceDetailPage() {
   };
 
   // ── 轉出尾款收據 ──
-const createTailMutation = api.adminInvoice.createTailInvoice.useMutation({
-  onSuccess: (newInvoice) => {
-    utils.adminInvoice.getById.invalidate({ id });
-    utils.adminInvoice.search.invalidate();
-    // 可選擇跳轉到尾款收據頁
-    // router.push(`/admin/finance/invoices/${newInvoice.id}`);
-  },
-  onError: (err) => {
-    alert(err.message); // 可改用 toast
-  },
-});
+// const createTailMutation = api.adminInvoice.createTailInvoice.useMutation({
+//   onSuccess: (newInvoice) => {
+//     utils.adminInvoice.getById.invalidate({ id });
+//     utils.adminInvoice.search.invalidate();
+//     // 可選擇跳轉到尾款收據頁
+//     // router.push(`/admin/finance/invoices/${newInvoice.id}`);
+//   },
+//   onError: (err) => {
+//     alert(err.message); // 可改用 toast
+//   },
+// });
 
-const handleCreateTailInvoice = async () => {
-  if (!confirm('確定要從此收據轉出尾款收據？\n系統會自動計算剩餘未收金額，產生一張新的尾款收據。')) return;
-  try {
-    await createTailMutation.mutateAsync({ invoiceId: id });
-  } catch {
-    // error handled by onError
-  }
-};
+// const handleCreateTailInvoice = async () => {
+//   if (!confirm('確定要從此收據轉出尾款收據？\n系統會自動計算剩餘未收金額，產生一張新的尾款收據。')) return;
+//   try {
+//     await createTailMutation.mutateAsync({ invoiceId: id });
+//   } catch {
+//     // error handled by onError
+//   }
+// };
 
 
   // ── 輔助：安全轉換 Prisma Decimal (可能為 number 或 { toNumber() }) ──
@@ -238,7 +238,7 @@ console.log("-- Data --",invoice," -- End -- ");
             </button>
 
               {/* 轉出尾款收據 */}
-              <button
+              {/* <button
                 onClick={handleCreateTailInvoice}
                 disabled={createTailMutation.isPending }
                 className={cn(
@@ -255,7 +255,7 @@ console.log("-- Data --",invoice," -- End -- ");
                   <FileOutput size={16} />
                 )}
                 {createTailMutation.isPending ? "轉出中..." : "轉出尾款收據"}
-              </button>
+              </button> */}
 
 
             {/* 匯出 PDF */}

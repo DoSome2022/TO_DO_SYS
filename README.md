@@ -223,3 +223,11 @@ equipmentForHistory 看看有沒有這東西 這是該裝備的使用記錄 用�
 // /staff/todos/
 
 裝備的crud
+
+(全完成)
+
+10/7/2026
+
+admin 的報價單 (完成)
+
+

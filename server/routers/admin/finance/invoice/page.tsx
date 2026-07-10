@@ -73,67 +73,78 @@ export const adminInvoiceRouter = router({
         where.balanceAmount = { gt: 0 };
       }
 
-    const [items, total] = await Promise.all([
-      ctx.db.invoice.findMany({
-        where,
-        include: {
-          customer: { select: { id: true, name: true, companyname: true } },
-          companyProfile: { select: { id: true, name: true } },
-          project: { select: { id: true, code: true, title: true } },
-          quotation: {
-            select: {
-              id: true,
-              title: true,
-              sales: { select: { name: true } },
-              items: {                          // ← 新增：include quotation items
-                select: { subtotal: true },
-              },
-            },
-          },
-          createdBy: { select: { id: true, name: true } },
-          payments: {
-            orderBy: { paidAt: "desc" },
-            select: {
-              id: true,
-              amount: true,
-              type: true,
-              method: true,
-              paidAt: true,
-            },
+const [items, total] = await Promise.all([
+  ctx.db.invoice.findMany({
+    where,
+    include: {
+      customer: { select: { id: true, name: true, companyname: true } },
+      companyProfile: { select: { id: true, name: true } },
+      project: { select: { id: true, code: true, title: true } },
+      quotation: {
+        select: {
+          id: true,
+          title: true,
+          sales: { select: { name: true } },
+          items: {
+            select: { subtotal: true },
           },
         },
-        orderBy: { issuedDate: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      ctx.db.invoice.count({ where }),
-    ]);
+      },
+      createdBy: { select: { id: true, name: true } },
+      payments: {
+        orderBy: { paidAt: "desc" },
+        select: {
+          id: true,
+          amount: true,
+          type: true,
+          method: true,
+          paidAt: true,
+        },
+      },
+    },
+    orderBy: { issuedDate: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  }),
+  ctx.db.invoice.count({ where }),
+]);
+
+return {
+  items: items.map((item) => {
+    // ✅ 從 quotation items 加總 subtotal 得到原始報價總金額（對照用）
+    const quotationTotal = (item.quotation?.items ?? []).reduce(
+      (sum, qi) => sum + Number(qi.subtotal), 0
+    );
+    // ✅ 從 payments 加總得到已收金額
+    const paid = item.payments.reduce(
+      (sum, p) => sum + Number(p.amount), 0
+    );
+    
+    // 🔥 修正：判斷是否為尾款收據
+    const isTailInvoice = item.invoiceNo?.startsWith("INV-TAIL");
+    
+    // 🔥 修正：尾款收據使用資料庫中的 totalAmount，不是從報價單計算
+    const totalAmount = isTailInvoice
+      ? Number(item.totalAmount)  // 使用資料庫儲存的值（$9,050）
+      : quotationTotal;           // 一般收據從報價單計算（$12,050）
+
     return {
-      items: items.map((item) => {
-        // ✅ 從 quotation items 加總 subtotal 得到正確總金額
-        const calculatedTotal = (item.quotation?.items ?? []).reduce(
-          (sum, qi) => sum + Number(qi.subtotal), 0
-        );
-        // ✅ 從 payments 加總得到已收金額
-        const paid = item.payments.reduce(
-          (sum, p) => sum + Number(p.amount), 0
-        );
-        return {
-          ...item,
-          totalAmount: calculatedTotal,                // ← 用計算值
-          paidAmount: paid,                            // ← 用計算值
-          balanceAmount: calculatedTotal - paid,       // ← 未付 = 總金額 - 已收
-          payments: item.payments.map((p) => ({
-            ...p,
-            amount: Number(p.amount),
-          })),
-        };
-      }),
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
+      ...item,
+      totalAmount,
+      paidAmount: paid,
+      balanceAmount: totalAmount - paid,
+      payments: item.payments.map((p) => ({
+        ...p,
+        amount: Number(p.amount),
+      })),
     };
+  }),
+  total,
+  page,
+  pageSize,
+  totalPages: Math.ceil(total / pageSize),
+};
+
   }),
 
 

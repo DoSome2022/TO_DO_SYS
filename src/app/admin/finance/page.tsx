@@ -26,7 +26,7 @@ export default function FinanceOverviewPage() {
     {
       title: "本年度營收",
       value: invoiceSummary?.totalRevenue,
-      prefix: "NT$",
+      prefix: "HK$",
       icon: DollarSign,
       color: "#0078D4",
       trend: "+12.5%",
@@ -35,7 +35,7 @@ export default function FinanceOverviewPage() {
     {
       title: "未收尾款總額",
       value: invoiceSummary?.outstandingBalance,
-      prefix: "NT$",
+      prefix: "HK$",
       icon: AlertCircle,
       color: "#D83B01",
       trend: "需追蹤",
