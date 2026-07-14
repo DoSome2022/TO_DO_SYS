@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react"; 
+import Image from 'next/image'
+import logo from '../../../public/logo.avif';
 
 export function MainNavbar() {
   const pathname = usePathname();
@@ -10,7 +12,11 @@ export function MainNavbar() {
   const isLoggedIn = status === "authenticated"; 
 
   // 動態產生客戶選單
-  const navItems = [{ label: "首頁", href: "/" }];
+  const navItems = [
+    { label: "Home", href: "/" },
+    { label: "About", href: "/about" },
+    { label: "Service", href: "/service" },
+  ];
 
   if (isLoggedIn) {
     //假設登入的若是 staff，我們甚至可以多加一個前往後台的按鈕
@@ -32,8 +38,8 @@ export function MainNavbar() {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link href="/" className="flex-shrink-0 flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">C</div>
-              <span className="text-xl font-bold text-gray-800">Cinema Vision</span>
+              <Image src={logo} alt="logo" width={80} height={40} />
+              <span className="text-xl font-bold text-gray-600">Lovely Tour Company Limited</span>
             </Link>
           </div>
 
