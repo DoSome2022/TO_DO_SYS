@@ -230,4 +230,18 @@ equipmentForHistory 看看有沒有這東西 這是該裝備的使用記錄 用�
 
 admin 的報價單 (完成)
 
+14/7
 
+
+     Add 2 page: 
+     src/app/about/page.tsx
+     src/app/service/page.tsx
+
+     Edit: 
+     src/components/Nabar/MainNavbar.tsx 
+     import image, line 6-7
+     added navItems, line 15-19
+     added logo, line 41
+     changed company name & colour, line 52
+
+     Upload file: /public/logo.avif
