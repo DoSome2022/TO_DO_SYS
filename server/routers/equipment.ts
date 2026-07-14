@@ -469,7 +469,7 @@ getHistory: protectedProcedure
         maintenanceRecords: {
           orderBy: { startDate: "desc" },
         },
-        purchaseItems: {
+        PurchaseItem: {
           include: { purchase: true },
         },
       },
