@@ -247,3 +247,5 @@ admin 的報價單 (完成)
      Upload file: /public/logo.avif
 
 完成
+
+加了gmail 

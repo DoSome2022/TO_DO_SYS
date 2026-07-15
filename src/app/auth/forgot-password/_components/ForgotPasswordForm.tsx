@@ -2,15 +2,25 @@
 
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { trpc } from "../../../../../trpc/client";
+// 你的 tRPC client
 
 export function ForgotPasswordForm() {
-  const form = useForm();
+  const form = useForm<{ email: string }>();
 
-  const onSubmit = (data: any) => {
-    console.log("重設密碼的信箱:", data);
-    // 這裡之後可以接 API 發送重設密碼信件
-    alert("如果該信箱存在，我們已發送重設密碼連結給您。");
+  const forgotPasswordMutation = trpc.auth_.forgotPassword.useMutation({
+    onSuccess: () => {
+      alert("如果該信箱存在，我們已發送重設密碼連結給您。");
+    },
+    onError: (error) => {
+      alert(error.message || "發送失敗，請稍後再試");
+    },
+  });
+
+  const onSubmit = (data: { email: string }) => {
+    forgotPasswordMutation.mutate(data);
   };
+
 
   return (
     <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-lg p-8 shadow-xl">
@@ -37,9 +47,10 @@ export function ForgotPasswordForm() {
 
         <button 
           type="submit" 
-          className="w-full bg-amber-600 text-white py-3 rounded hover:bg-amber-700 transition font-medium mt-4"
+          disabled={forgotPasswordMutation.isPending}
+          className="w-full bg-amber-600 text-white py-3 rounded hover:bg-amber-700 transition font-medium mt-4 disabled:opacity-50"
         >
-          發送重設連結
+          {forgotPasswordMutation.isPending ? "寄送中..." : "發送重設連結"}
         </button>
       </form>
 
