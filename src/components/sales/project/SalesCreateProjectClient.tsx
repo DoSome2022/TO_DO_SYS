@@ -1,3 +1,4 @@
+//src/components/sales/project/SalesCreateProjectClient.tsx
 "use client";
 
 import { useState } from "react";
@@ -46,10 +47,10 @@ export default function SalesCreateProjectClient() {
       console.log("準備送出的資料：", data);
       
       // ✅ 4. 實務上這裡呼叫 tRPC 送出資料 (會觸發剛寫好的 Prisma Transaction)
-      await createProjectMutation.mutateAsync(data);
-
-      // (已經刪除了模擬的 1 秒延遲，現在是真實的資料庫寫入)
-      toast.success("專案與報價單建立成功！");
+    const result = await createProjectMutation.mutateAsync(data);
+    
+    // ✨ 可以從 result.quotation.number 拿到剛剛產生的編號
+    toast.success(`報價單已建立！編號：${result.quotation.number}`);
       
       // 成功後導向 Sales 的專案總覽頁
       router.push("/sales/projects"); 

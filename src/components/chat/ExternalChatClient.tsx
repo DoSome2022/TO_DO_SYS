@@ -1,19 +1,19 @@
-"use client"; // 標明這是 Client Component
+// src/components/chat/ExternalChatClient.tsx
+"use client";
 
 import { api } from "@/utils/api";
 import { useState } from "react";
+import { FileText } from "lucide-react"; // ✨ 新增
 
-
-// 接收從 Server 傳來的 initialData 或 id
 interface ExternalChatClientProps {
   quotationId: string;
+  quotationNumber?: string; // ✨ 新增 prop（可選，不影響現有呼叫）
 }
 
-export default function ExternalChatClient({ quotationId }: ExternalChatClientProps) {
+export default function ExternalChatClient({ quotationId, quotationNumber }: ExternalChatClientProps) {
   const [message, setMessage] = useState("");
   const utils = api.useUtils();
 
-  // Client 端的即時抓取 (輪詢)
   const { data: messages } = api.quotation.getExternalMessages.useQuery(
     { quotationId },
     { refetchInterval: 5000 }
@@ -28,6 +28,16 @@ export default function ExternalChatClient({ quotationId }: ExternalChatClientPr
 
   return (
     <div className="flex h-[400px] flex-col border rounded-lg bg-white">
+      {/* ✨ 新增：報價單編號橫幅 */}
+      {quotationNumber && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b text-xs text-muted-foreground">
+          <FileText className="h-3.5 w-3.5" />
+          <span className="font-mono tracking-wider">
+            報價單編號：{quotationNumber}
+          </span>
+        </div>
+      )}
+
       {/* 訊息顯示區 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {messages?.map((msg) => (

@@ -202,23 +202,31 @@ export function QuotationDetailClient({ quotationId, onClose, onRefresh }: Quota
               </div>
             </div>
           ) : (
-            <>
-              <h2 className="text-2xl font-bold">{quotation.title}</h2>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Building2 className="h-4 w-4" />
-                  <span>客戶：{quotation.customer?.customname || quotation.customer?.name || '未填寫'}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  <span>業務：{quotation.sales?.name}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>建立：{format(new Date(quotation.createdAt), 'yyyy/MM/dd', { locale: zhTW })}</span>
-                </div>
-              </div>
-            </>
+  <>
+    {/* ✨ 加入這行：報價單編號 */}
+    <div className="flex items-center gap-2 mb-1">
+      <FileText className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm font-mono tracking-wider text-muted-foreground">
+        {quotation.number || '編號待生成'}
+      </span>
+    </div>
+
+    <h2 className="text-2xl font-bold">{quotation.title}</h2>
+    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+      <div className="flex items-center gap-1">
+        <Building2 className="h-4 w-4" />
+        <span>客戶：{quotation.customer?.customname || quotation.customer?.name || '未填寫'}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <User className="h-4 w-4" />
+        <span>業務：{quotation.sales?.name}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Calendar className="h-4 w-4" />
+        <span>建立：{format(new Date(quotation.createdAt), 'yyyy/MM/dd', { locale: zhTW })}</span>
+      </div>
+    </div>
+  </>
           )}
         </div>
 

@@ -14,7 +14,7 @@ export function MainNavbar() {
   // 動態產生客戶選單
   const navItems = [
     { label: "Home", href: "/" },
-    { label: "About", href: "/about" },
+    { label: "Aboutus", href: "/aboutus" },
     { label: "Service", href: "/service" },
   ];
 

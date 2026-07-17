@@ -5,6 +5,7 @@ import { db } from "@/app/lib/prisma";
 import { protectedProcedure, router ,hasPermission, publicProcedure } from "../trpc"; // ← 改用 protectedProcedure
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { generateQuotationNumber } from "@/lib/quotation-number.service";
 
 // 假設您已有權限 middleware（後面會說明如何建立）
 
@@ -255,87 +256,84 @@ export const ProjectRouter = router({
   // server/routers/project.ts
 
   // 👇 同時建立報價單與專案
-  createProjectWithQuote: protectedProcedure
-    .input(
-      // ★ 這裡的 Zod Schema 定義了 input 的型別，這樣 TypeScript 就不會報錯了
-      z.object({
-        title: z.string(),
-        description: z.string().optional(),
-        pmId: z.string().optional(),
-        customerId: z.string(),
-        companyProfileId: z.string(),
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        services: z.array(
-          z.object({
-            serviceId: z.string(),
-            customName: z.string().optional(),
-            quantity: z.number(),
-            unitPrice: z.number(),
-          })
-        ),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      // 1. 取得目前登入的業務 ID
-      const salesId = ctx.session.user.id;
-      
-      // 2. 計算報價單總金額 (因為上面定義了 services，這裡 item 就不會是 any 了)
-      const totalPrice = input.services.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0
-      );
-      
-      // 3. 使用 Prisma Transaction
-      const result = await db.$transaction(async (tx) => {
-        
-        // A. 建立報價單
-        const quotation = await tx.quotation.create({
-          data: {
-            title: input.title,
-            salesId: salesId,
-            customerId: input.customerId,
-            companyProfileId: input.companyProfileId,
-            status: "DRAFT", 
-            customerPrice: totalPrice, 
-            items: {
-              create: input.services.map((s) => ({
-                serviceId: s.serviceId,
-                customName: s.customName,
-                quantity: s.quantity,
-                unitPrice: s.unitPrice,
-                subtotal: s.quantity * s.unitPrice,
-              })),
-            },
-          },
-        });
-        
-        // B. 建立專案並使用 connect 正確綁定關聯
-        const project = await tx.project.create({
-          data: {
-            title: input.title,
-            description: input.description,
-            salesId: salesId,
-            customerId: input.customerId,
-            pmId: input.pmId || null,
-            status: "IN_PROGRESS",
-            startDate: input.startDate ? new Date(input.startDate) : null,
-            endDate: input.endDate ? new Date(input.endDate) : null,
-            // ✅ 使用 connect 正確建立與剛剛 Quotation 的雙向關聯
-            quotation: {
-              connect: {
-                id: quotation.id
-              }
-            }
-          },
-        });
+createProjectWithQuote: protectedProcedure
+  .input(
+    z.object({
+      title: z.string(),
+      description: z.string().optional(),
+      pmId: z.string().optional(),
+      customerId: z.string(),
+      companyProfileId: z.string(),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
+      services: z.array(
+        z.object({
+          serviceId: z.string(),
+          customName: z.string().optional(),
+          quantity: z.number(),
+          unitPrice: z.number(),
+        })
+      ),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const salesId = ctx.session.user.id;
+    const totalPrice = input.services.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0
+    );
 
-        return { project, quotation };
+    const result = await db.$transaction(async (tx) => {
+      
+      // 🔥【新增】🔥 在 transaction 內生成報價單編號！
+      const quotationNumber = await generateQuotationNumber(tx);
+
+      // A. 建立報價單 —— 加入 number 欄位
+      const quotation = await tx.quotation.create({
+        data: {
+          // ✨ 加入這行：自動產生的編號
+          number: quotationNumber,
+
+          title: input.title,
+          salesId: salesId,
+          customerId: input.customerId,
+          companyProfileId: input.companyProfileId,
+          status: "DRAFT",
+          customerPrice: totalPrice,
+          items: {
+            create: input.services.map((s) => ({
+              serviceId: s.serviceId,
+              customName: s.customName,
+              quantity: s.quantity,
+              unitPrice: s.unitPrice,
+              subtotal: s.quantity * s.unitPrice,
+            })),
+          },
+        },
       });
-      
-      return result;
-    }),
 
+      // B. 建立專案（不變）
+      const project = await tx.project.create({
+        data: {
+          title: input.title,
+          description: input.description,
+          salesId: salesId,
+          customerId: input.customerId,
+          pmId: input.pmId || null,
+          status: "IN_PROGRESS",
+          startDate: input.startDate ? new Date(input.startDate) : null,
+          endDate: input.endDate ? new Date(input.endDate) : null,
+          quotation: {
+            connect: { id: quotation.id },
+          },
+        },
+      });
+
+      return { project, quotation };
+    });
+
+    return result;
+  }),
 
  // 1. 新增專案任務 (對應到 DB 的 WorkItem)
   addProjectTask: protectedProcedure

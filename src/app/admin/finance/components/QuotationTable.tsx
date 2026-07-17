@@ -49,6 +49,9 @@ export function QuotationTable({ data, isLoading }: QuotationTableProps) {
       <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
         <thead className="bg-zinc-50 dark:bg-zinc-800/50">
           <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+      編號                  {/* ← ✨ 新增 */}
+    </th>
             <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">標題</th>
             <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">狀態</th>
             <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wider">客戶</th>
@@ -67,6 +70,9 @@ export function QuotationTable({ data, isLoading }: QuotationTableProps) {
                 className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition cursor-pointer"
                 onClick={() => window.location.href = `/admin/finance/quotations/${item.id}`}
               >
+                      <td className="px-4 py-4 text-sm font-mono tracking-wider text-zinc-500">
+        {item.number ?? '—'}
+            </td>
                 <td className="px-4 py-4 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                   {item.title}
                 </td>

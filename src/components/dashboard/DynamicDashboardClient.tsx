@@ -4,6 +4,7 @@
 import WorkItemsViewer from "@/components/WorkItemsViewer";
 // import TodoListViewer from "@/components/TodoListViewer";    // ← 🆕 引入
 import StaffTodoManager from "@/components/StaffTodoManager";
+import ProjectCalendar from "./ProjectCalendar";
 
 import PmDashboard from "./PmDashboard";
 import SalesDashboard_index from "./SalesDashboard";
@@ -68,8 +69,51 @@ export default function DynamicDashboardClient() {
             情況 A：Staff / PM 
             → 顯示「專案任務 (WorkItems)」+「個人待辦 (Staff_TODO)」
           */}
+
+{isAdmin && (
+  <>
+
+    
+    {/* ✨ Admin 全覽行事曆 */}
+    <div className="mt-8">
+      <h2 className="text-2xl font-semibold mb-4">📅 全專案行事曆</h2>
+      <ProjectCalendar />
+    </div>
+  </>
+)}
+
+{isPM && (
+  <>
+  
+    
+    {/* ✨ Admin 全覽行事曆 */}
+    <div className="mt-8">
+      <h2 className="text-2xl font-semibold mb-4">📅 我的工作月曆</h2>
+      <ProjectCalendar />
+    </div>
+  </>
+)}
+
+{isSales && (
+  <>
+
+    
+    {/* ✨ Admin 全覽行事曆 */}
+    <div className="mt-8">
+      <h2 className="text-2xl font-semibold mb-4">📅 我的工作月曆</h2>
+      <ProjectCalendar />
+    </div>
+  </>
+)}
+
           {isStaffOrPM && (
             <>
+                {/* ✨ 行事曆：放在工作項目最上方 */}
+    <div className="mb-6">
+      <h3 className="text-lg font-semibold mb-3">📅 我的工作月曆</h3>
+      <ProjectCalendar />
+    </div>
+
               {/* 專案任務（只有 Staff/PM 才有） */}
               <WorkItemsViewer 
                 initialStaffId={profile.id} 

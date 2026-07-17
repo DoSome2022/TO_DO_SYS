@@ -7,7 +7,7 @@ import { db } from "@/app/lib/prisma";
 import { updateQuotationTotal } from "@/lib/quotation.service";
 import { createVersionSnapshot, revertToVersion } from "@/lib/version.service";
 import { createWorkItemFromNewQuotationItem, markWorkItemAsSuspended, syncQuotationItemsToWorkItems } from "@/lib/quotation-sync.service";
-
+import { generateQuotationNumber } from "@/lib/quotation-number.service";
 
 
 
@@ -167,12 +167,20 @@ export const quotationRouter = router({
     }),
 
   // 建立報價單 (Sales 專用)
-  createQuotation: salesProcedure
-    .input(createQuotationSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        const quotation = await ctx.db.quotation.create({
+createQuotation: salesProcedure
+  .input(createQuotationSchema)
+  .mutation(async ({ ctx, input }) => {
+    try {
+      // 🔥 使用 transaction 確保編號生成的原子性
+      const quotation = await ctx.db.$transaction(async (tx) => {
+        
+        // 1️⃣ 生成報價單編號
+        const number = await generateQuotationNumber(tx);
+
+        // 2️⃣ 建立報價單（含 number）
+        return await tx.quotation.create({
           data: {
+            number,          // ✨ 自動產生的編號
             title: input.title,
             customerPrice: input.customerPrice,
             status: "DRAFT",
@@ -184,15 +192,16 @@ export const quotationRouter = router({
             sales: true,
           },
         });
+      });
 
-        return { success: true, quotation };
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "建立失敗",
-        });
-      }
-    }),
+      return { success: true, quotation };
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: error instanceof Error ? error.message : "建立失敗",
+      });
+    }
+  }),
 
   // 更新報價單
   updateQuotation: salesProcedure

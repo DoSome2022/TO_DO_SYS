@@ -18,6 +18,7 @@ export interface FinanceSearchParams {
   salesName?: string;
   customerName?: string;
   companyName?: string;
+  quotationNumber?: string;
   page?: number;
   pageSize?: number;
   // status?: InvoiceStatus;
@@ -30,6 +31,7 @@ export interface FinanceSearchParams {
 export interface QuotationSearchResult {
   items: Array<{
     id: string;
+    number: string | null; 
     title: string;
     status: string;
     customerPrice: number | null;

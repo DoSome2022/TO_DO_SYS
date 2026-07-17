@@ -1,3 +1,5 @@
+//src/app/admin/finance/quotations/page.tsx
+
 "use client";
 
 
@@ -20,6 +22,7 @@ export default function AdminQuotationsPage() {
       salesName: filters.salesName || undefined,
       customerName: filters.customerName || undefined,
       companyName: filters.companyName || undefined,
+      quotationNumber: filters.quotationNumber || undefined,
       page: 1,
     });
   };

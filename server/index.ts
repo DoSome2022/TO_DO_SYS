@@ -6,6 +6,7 @@ import { adminDashboardRouter } from "./routers/admindashoard";
 import { adminUserRouter } from "./routers/adminUser";
 import { attachmentRouter } from "./routers/attachment";
 import { authRouter } from "./routers/auth";
+import { calendarRouter } from "./routers/calendar";
 import { CommentRouter } from "./routers/comment";
 import { companyProfileRouter } from "./routers/companyProfile";
 import { customerRouter } from "./routers/customer";
@@ -71,6 +72,7 @@ export const appRouter = router({
     adminQuotation:adminQuotationRouter,
     purchase: purchaseRouter,
     auth_:authRouter,
+    calendar: calendarRouter,
 });
 
 export type AppRouter = typeof appRouter;

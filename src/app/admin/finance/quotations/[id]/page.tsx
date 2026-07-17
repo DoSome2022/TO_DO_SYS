@@ -212,6 +212,7 @@ export default function QuotationDetailPage() {
         <div className="p-6 space-y-6">
           {/* 基本資訊網格 */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <InfoField label="報價單編號" value={quotation.number ?? '—'} />
             <InfoField label="專案編號" value={quotation.project?.code ?? "—"} />
             <InfoField label="客戶名稱" value={quotation.customer?.name ?? "—"} />
             <InfoField label="公司抬頭" value={quotation.companyProfile?.name ?? "—"} />
